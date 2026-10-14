@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2026 bvbhu (vial-qmk-stg-n32h481 fork)
 
-    N32H49x HAL low level driver source (NSING N32H481REL7K).
+    N32H48x HAL low level driver source (NSING N32H481REL7K).
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 */
 
 /**
- * @file    N32H49x/hal_lld.c
- * @brief   N32H49x HAL subsystem low level driver source.
+ * @file    N32H48x/hal_lld.c
+ * @brief   N32H48x HAL subsystem low level driver source.
  *
  * @addtogroup HAL
  * @{
@@ -36,7 +36,7 @@
 
 /**
  * @brief   CMSIS system core clock variable.
- * @note    It is declared in system_n32h49x.h.
+ * @note    It is declared in system_N32H48x.h.
  */
 uint32_t SystemCoreClock = N32_HCLK;
 
@@ -120,20 +120,22 @@ void n32_clock_init(void) {
   RCC->PLLCTRL = (uint32_t)0x00046346U;
 
   /* Enable ICACHE and disable Prefetch Buffer. */
-  FLASH->AC |= (uint32_t)(FLASH_AC_ICAHEN1 | FLASH_AC_ICAHEN2);
+  FLASH->AC |= (uint32_t)(FLASH_AC_ICAHEN);
   FLASH->AC &= (uint32_t)(~FLASH_AC_PRFTBFEN);
 
-  /* Flash wait states depending on clock. */
+  /* Flash wait states depending on clock.
+     0: HCLK <= 40M, 1: <=80M, 2: <=120M, 3: <=160M, 4: <=200M, 5: <=240M
+     (N32H481 user manual, Table for FLASH->AC LATENCY). */
   tmpregister = FLASH->AC;
   tmpregister &= (uint32_t)(~FLASH_AC_LATENCY);
-  tmpregister |= (uint32_t)((N32_SYSCLK - 1) / 48000000);
+  tmpregister |= (uint32_t)((N32_SYSCLK - 1) / 40000000);
   FLASH->AC = tmpregister;
 
   /* HCLK = SYSCLK. */
   RCC->CFG |= RCC_CFG_AHBPRES_DIV1;
 
-  /* PCLK2/PCLK1 max 120MHz. */
-  if (N32_SYSCLK > 120000000) {
+  /* PCLK2/PCLK1 max 180MHz. */
+  if (N32_SYSCLK > 180000000) {
     RCC->CFG |= ((uint32_t)RCC_CFG_APB2PRES_DIV2 | RCC_CFG_APB1PRES_DIV2);
   }
   else {

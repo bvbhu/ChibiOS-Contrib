@@ -1,34 +1,34 @@
 /**
-*     Copyright (c) 2025, Nsing Technologies Inc.
+*     Copyright (c) 2023, Nations Technologies Inc.
 * 
 *     All rights reserved.
 *
-*     This software is the exclusive property of Nsing Technologies Inc. (Hereinafter 
-* referred to as Nsing). This software, and the product of Nsing described herein 
-* (Hereinafter referred to as the Product) are owned by Nsing under the laws and treaties
+*     This software is the exclusive property of Nations Technologies Inc. (Hereinafter 
+* referred to as NATIONS). This software, and the product of NATIONS described herein 
+* (Hereinafter referred to as the Product) are owned by NATIONS under the laws and treaties
 * of the People's Republic of China and other applicable jurisdictions worldwide.
 *
-*     Nsing does not grant any license under its patents, copyrights, trademarks, or other 
+*     NATIONS does not grant any license under its patents, copyrights, trademarks, or other 
 * intellectual property rights. Names and brands of third party may be mentioned or referred 
 * thereto (if any) for identification purposes only.
 *
-*     Nsing reserves the right to make changes, corrections, enhancements, modifications, and 
-* improvements to this software at any time without notice. Please contact Nsing and obtain 
+*     NATIONS reserves the right to make changes, corrections, enhancements, modifications, and 
+* improvements to this software at any time without notice. Please contact NATIONS and obtain 
 * the latest version of this software before placing orders.
 
-*     Although Nsing has attempted to provide accurate and reliable information, Nsing assumes 
+*     Although NATIONS has attempted to provide accurate and reliable information, NATIONS assumes 
 * no responsibility for the accuracy and reliability of this software.
 * 
 *     It is the responsibility of the user of this software to properly design, program, and test 
 * the functionality and safety of any application made of this information and any resulting product. 
-* In no event shall Nsing be liable for any direct, indirect, incidental, special,exemplary, or 
+* In no event shall NATIONS be liable for any direct, indirect, incidental, special,exemplary, or 
 * consequential damages arising in any way out of the use of this software or the Product.
 *
-*     Nsing Products are neither intended nor warranted for usage in systems or equipment, any
+*     NATIONS Products are neither intended nor warranted for usage in systems or equipment, any
 * malfunction or failure of which may cause loss of human life, bodily injury or severe property 
 * damage. Such applications are deemed, "Insecure Usage".
 *
-*     All Insecure Usage shall be made at user's risk. User shall indemnify Nsing and hold Nsing 
+*     All Insecure Usage shall be made at user's risk. User shall indemnify NATIONS and hold NATIONS 
 * harmless from and against all claims, costs, damages, and other liabilities, arising from or related 
 * to any customer's Insecure Usage.
 
@@ -36,22 +36,22 @@
 * limited to, the warranties of merchantability, fitness for a particular purpose and non-infringement
 * are disclaimed to the fullest extent permitted by law.
 
-*     Unless otherwise explicitly permitted by Nsing, anyone may not duplicate, modify, transcribe
+*     Unless otherwise explicitly permitted by NATIONS, anyone may not duplicate, modify, transcribe
 * or otherwise distribute this software for any purposes, in whole or in part.
 *
-*     Nsing products and technologies shall not be used for or incorporated into any products or systems
+*     NATIONS products and technologies shall not be used for or incorporated into any products or systems
 * whose manufacture, use, or sale is prohibited under any applicable domestic or foreign laws or regulations. 
 * User shall comply with any applicable export control laws and regulations promulgated and administered by 
 * the governments of any countries asserting jurisdiction over the parties or transactions.
 **/
 
 /**
-*\*\file system_n32h49x.c
-*\*\author Nsing
+*\*\file system_n32h47x_48x.c
+*\*\author Nations
 *\*\version v1.0.0
-*\*\copyright Copyright (c) 2025, Nsing Technologies Inc. All rights reserved.
+*\*\copyright Copyright (c) 2023, Nations Technologies Inc. All rights reserved.
  */
-#include "n32h49x.h"
+#include "n32h47x_48x.h"
 
 /* Uncomment the line corresponding to the desired System clock (SYSCLK)
    frequency (after reset the HSI is used as SYSCLK source)
@@ -82,13 +82,20 @@
 #define SYSCLK_USE_HSI_PLL 2
 #define SYSCLK_USE_HSE_PLL 3
 
-#ifndef SYSCLK_FREQ   
+#ifndef SYSCLK_FREQ
+#if defined (N32H473) || defined (N32H474)
+#define SYSCLK_FREQ    200000000
+#elif defined (N32H475) || defined (N32H482) || defined (N32H487)     
 #define SYSCLK_FREQ    240000000
+#else
+#error wrong macro definition
+#endif  
+
 #endif
 
 
 #ifndef SYSCLK_SRC
-#define SYSCLK_SRC   SYSCLK_USE_HSI_PLL
+#define SYSCLK_SRC   SYSCLK_USE_HSE_PLL
 #endif
 
 #if SYSCLK_SRC == SYSCLK_USE_HSI
@@ -116,8 +123,8 @@
 #define PLL_INPRE    1
 #define PLL_OUTPRE   1
 
-#elif ((SYSCLK_FREQ % (HSI_VALUE / 2)) == 0) && (SYSCLK_FREQ / (HSI_VALUE / 2) >= 8)                         \
-    && (SYSCLK_FREQ / (HSI_VALUE / 2) <= 76) && ((SYSCLK_FREQ / (HSI_VALUE / 2)) % 2 ==0)
+#elif ((SYSCLK_FREQ % (HSI_VALUE / 2)) == 0) && (SYSCLK_FREQ / (HSI_VALUE / 2) >= 8)                                     \
+    && (SYSCLK_FREQ / (HSI_VALUE / 2) <= 76)
 
 #define PLLSRC_DIV   2
 #define PLL_MUL     (SYSCLK_FREQ / (HSI_VALUE / 2))
@@ -151,29 +158,12 @@
 #define PLL_INPRE    1
 #define PLL_OUTPRE   1
 
-#elif ((SYSCLK_FREQ % (HSE_VALUE / 3)) == 0) && (SYSCLK_FREQ / (HSE_VALUE / 3) >= 8)                       \
-      && (SYSCLK_FREQ / (HSE_VALUE / 3) <= 76) && ((SYSCLK_FREQ / (HSE_VALUE / 3)) % 2 ==0)
-
-#define PLLSRC_DIV   1
-#define PLL_MUL     (SYSCLK_FREQ / (HSE_VALUE / 3))
-#define PLL_INPRE    3
-#define PLL_OUTPRE   1
-
-#elif ((SYSCLK_FREQ % (HSE_VALUE / 6)) == 0) && (SYSCLK_FREQ / (HSE_VALUE / 6) >= 8)                       \
-      && (SYSCLK_FREQ / (HSE_VALUE / 6) <= 76) && ((SYSCLK_FREQ / (HSE_VALUE / 6)) % 2 ==0)
+#elif ((SYSCLK_FREQ % (HSE_VALUE / 3)) == 0) && (SYSCLK_FREQ / (HSE_VALUE / 3) >= 8) 
 
 #define PLLSRC_DIV   1
 #define PLL_MUL     (SYSCLK_FREQ / (HSE_VALUE / 6))
 #define PLL_INPRE    3
 #define PLL_OUTPRE   2
-
-#elif ((SYSCLK_FREQ % (HSE_VALUE / 8)) == 0) && (SYSCLK_FREQ / (HSE_VALUE / 8) >= 8)                        \
-    && (SYSCLK_FREQ / (HSE_VALUE / 8) <= 76) && ((SYSCLK_FREQ / (HSE_VALUE / 8)) % 2 ==0)
-
-#define PLLSRC_DIV   2
-#define PLL_MUL     (SYSCLK_FREQ / (HSE_VALUE / 8))
-#define PLL_INPRE    4
-#define PLL_OUTPRE   1
 
 #else
 #error Cannot make a PLL multiply factor to SYSCLK_FREQ.
@@ -184,9 +174,7 @@
 #endif
 
 /* #define VECT_TAB_SRAM */
-#ifndef VECT_TAB_OFFSET
-#define VECT_TAB_OFFSET 0x0U /*!< Vector Table base offset field. This value must be a multiple of 0x400. */
-#endif
+#define VECT_TAB_OFFSET 0x0U /*!< Vector Table base offset field. This value must be a multiple of 0x200. */
 
 /* #define start-up voltage */
 #define STARTUP_VOLT_2V18    (PWR_CTRL_PLS_LVL0)
@@ -245,29 +233,26 @@ void SystemInit(void)
 #endif
 
     /* Reset the RCC clock configuration to the default reset state(for debug purpose) */
-    /* Set HSIEN bit */
-    RCC->CTRL |= RCC_CTRL_HSIEN;
-    /* Wait HSI ready */
-    while((RCC->CTRL & RCC_CTRL_HSIRDF) != RCC_CTRL_HSIRDF);
+     /* Set HSIEN bit */
+    RCC->CTRL |= (uint32_t)0x00000004;
 
-    /* Config HSI as system clock */
-    RCC->CFG &= (~RCC_CFG_SCLKSW);
-    /* Wait system clock changed to HSI */
-    while((RCC->CFG & RCC_CFG_SCLKSTS) != RCC_CFG_SCLKSTS_HSI);
-    
-    /* Reset SCLKSW, AHBPRES, APB1PRES, APB2PRES bits */
-    RCC->CFG &= (uint32_t)0xC7F081FFU;
+    /* Reset SCLKSW, AHBPRE, APB1PRES, APB2PRES and MCOPLLSEL bits */
+    RCC->CFG &= (uint32_t)0x33F001FFU;
 
     /* Reset HSEEN, HSECSSEN, HSEBP and PLLEN bits */
     RCC->CTRL &= (uint32_t)0xFFFFFF2EU;
-    /* Wait PLL disabled */
-    while((RCC->CTRL & RCC_CTRL_PLLRDF) == RCC_CTRL_PLLRDF);
   
     /* Reset PLLMULFCT, PLLHSEPRES, PLLHSIPRES and PLLSRC bits */
     RCC->CFG &= (uint32_t)0xFFFFFE00U;
     
-    /* Reset PLLINPRES, PLLOUTPRES and SCLKPLLSEL bits, config LPFC2\LPFR\LPFC1 when PLLMULFCT=0 */
-    RCC->PLLCTRL = (uint32_t)0x00046346U;
+    /* Reset PLLINPRES, PLLOUTPRES and SCLKPLLSEL bits */
+    RCC->PLLCTRL &= (uint32_t)0xFFC0FFFFU;
+
+    /* Reset CFG2 register */
+    RCC->CFG2 = 0x00007000;
+    
+    /* Reset CFG3 register */
+    RCC->CFG3 = 0x00000071;
 
     /* Disable all interrupts and clear pending bits  */
     RCC->CLKINT = 0x01FF0000;
@@ -276,18 +261,12 @@ void SystemInit(void)
     RCC->MCOCFG = 0x00000000;
 
     /* Enable ICACHE and disable Prefetch Buffer */
-    FLASH->AC |= (uint32_t)(FLASH_AC_ICAHEN1|FLASH_AC_ICAHEN2);
-    /* Prefetch feature must be disabled for this bit. */
+    FLASH->AC |= (uint32_t)(FLASH_AC_ICAHEN);
     FLASH->AC &= (uint32_t)(~FLASH_AC_PRFTBFEN);
 
     /* Configure the System clock frequency, HCLK, PCLK2 and PCLK1 prescalers */
     /* Configure the Flash Latency cycles and enable prefetch buffer */
     SetSysClock();
-    
-    /* Default Enable PF Clock */
-    RCC->AHB1PCLKEN |= RCC_AHB1PCLKEN_IOPFEN;
-    /* Default Configures the RNGCCLK divide 2 from sysclk   */
-    RCC->CFG2 |= RCC_CFG2_RNGCPRES_DIV2;
 
 #ifdef VECT_TAB_SRAM
     SCB->VTOR = SRAM_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal SRAM. */
@@ -325,11 +304,11 @@ void SystemInit(void)
  *           - If SYSCLK source is PLL, SystemCoreClock will contain the
  * HSE_VALUE(**) or HSI_VALUE(*) multiplied by the PLL factors.
  *
- *         (*) HSI_VALUE is a constant defined in n32h49x.h file (default value
+ *         (*) HSI_VALUE is a constant defined in n32h47x_48x.h file (default value
  *             8 MHz) but the real value may vary depending on the variations
  *             in voltage and temperature.
  *
- *         (**) HSE_VALUE is a constant defined in N32H49X.h file (default value
+ *         (**) HSE_VALUE is a constant defined in N32H47X_48X.h file (default value
  *              8 MHz or 25 MHz, depedning on the product used), user has to
  * ensure that HSE_VALUE is same as the real frequency of the crystal used.
  *              Otherwise, this function may have wrong result.
@@ -394,17 +373,13 @@ void SystemCoreClockUpdate(void)
  */
 static void SetSysClock(void)
 {   
-    uint32_t tmpregister;
-#if ((SYSCLK_SRC == SYSCLK_USE_HSI_PLL) || (SYSCLK_SRC == SYSCLK_USE_HSE_PLL))
-    uint32_t tmpregister1;
+    uint32_t tmpregister, tmpregister1;
     const uint8_t PLLoutpresTable[10] = {0, 0, 1, 1, 2, 2, 2, 2, 3, 3};
-#endif
     
 #if ((SYSCLK_SRC == SYSCLK_USE_HSE) || (SYSCLK_SRC == SYSCLK_USE_HSE_PLL))
     uint32_t HSEStatus;
     uint32_t StartUpCounter = 0;
     /* Enable HSE */
-    RCC->CFG2 &= 0xFDFFFFFF;//HSERSTEN
     RCC->CTRL |= ((uint32_t)RCC_CTRL_HSEEN);
 
     /* Wait till HSE is ready and if Time out is reached exit */
@@ -424,28 +399,31 @@ static void SetSysClock(void)
 #endif
 
     /* Flash wait state
-        0: SYSCLK <= 48M
-        1: SYSCLK <= 96M
-        2: SYSCLK <= 144M
-        3: SYSCLK <= 192M
-        4: SYSCLK <= 240M
+        0: HCLK <= 40M
+        1: HCLK <= 80M
+        2: HCLK <= 120M
+        3: HCLK <= 160M
+        4: HCLK <= 200M
+        5: HCLK <= 240M
      */
     tmpregister = FLASH->AC;
     tmpregister &= (uint32_t)((uint32_t)~FLASH_AC_LATENCY);
-    tmpregister |= (uint32_t)((SYSCLK_FREQ - 1) / 48000000);
+    tmpregister |= (uint32_t)((SYSCLK_FREQ - 1) / 40000000);
     FLASH->AC = tmpregister;
     
     /* HCLK = SYSCLK */
     RCC->CFG |= (uint32_t)RCC_CFG_AHBPRES_DIV1;
 
-    /* PCLK2/PCLK1 max 120M */
-    if (SYSCLK_FREQ > 120000000)
+    /* PCLK2/PCLK1 max 180M */
+    if (SYSCLK_FREQ > 180000000)
     {
-        RCC->CFG |= ((uint32_t)RCC_CFG_APB2PRES_DIV2|RCC_CFG_APB1PRES_DIV2);    
+        RCC->CFG |= (uint32_t)RCC_CFG_APB2PRES_DIV2;
+        RCC->CFG |= (uint32_t)RCC_CFG_APB1PRES_DIV2;
     }
     else
     {
-        RCC->CFG |= ((uint32_t)RCC_CFG_APB2PRES_DIV1|RCC_CFG_APB1PRES_DIV1);
+        RCC->CFG |= (uint32_t)RCC_CFG_APB2PRES_DIV1;
+        RCC->CFG |= (uint32_t)RCC_CFG_APB1PRES_DIV1;
     }
 
 
@@ -483,15 +461,15 @@ static void SetSysClock(void)
      /* Set LPFC2[2:0],LPFR[3:0],LPFC1[3:0] bits */
     if((tmpregister&RCC_CFG_PLLMULFCT) <= RCC_CFG_PLLMULFCT24)
     {
-        tmpregister1 |= ((uint32_t)0x00306340);
+        tmpregister1 |= ((uint32_t)0x00006340);
     }
     else if((tmpregister&RCC_CFG_PLLMULFCT) <= RCC_CFG_PLLMULFCT40)
     {
-        tmpregister1 |= ((uint32_t)0x00306740);
+        tmpregister1 |= ((uint32_t)0x00006740);
     }
     else
     {
-        tmpregister1 |= ((uint32_t)0x00306C40);
+        tmpregister1 |= ((uint32_t)0x00006C40);
     }
     /* set PLLINPRES[1:0] bits */
     tmpregister1 |= (PLL_INPRE-1)<<16;
@@ -527,14 +505,11 @@ static void SetSysClock(void)
 
 static void SetStartupVolt(uint32_t start_volt)
 {
-    uint32_t temp_value;
+    uint32_t temp_value,i;
 
     /* Enable PWR clock */
     RCC->APB1PCLKEN |= RCC_APB1PCLKEN_PWREN;
-    
-    /* Config PVD souce as VDD */
-    PWR->CTRL6 &= ~PWR_CTRL6_PVDSRC;
-    
+
     temp_value = PWR->CTRL;
     /* Clear MSB and PLS[2:0] bits bit */
     temp_value &= (0xFFFFFD1F);
@@ -544,8 +519,8 @@ static void SetStartupVolt(uint32_t start_volt)
     PWR->CTRL = temp_value;
     /* Enable PVD */
     PWR->CTRL |= PWR_CTRL_PVDEN;
-    /* wait PVD go into effect*/
-    while((PWR->CTRLSTS & PWR_CTRLSTS_PVDRDF) == 0U);
+    /* wait VDD go into effect*/
+    for(i = 0;i < 2000;i++);
     /* wait PVD out*/
     while(PWR->CTRLSTS & PWR_CTRLSTS_PVDO);
     /* wait VDD stable*/

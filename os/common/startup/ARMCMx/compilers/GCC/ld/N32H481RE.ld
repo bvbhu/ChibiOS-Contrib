@@ -1,8 +1,8 @@
 /*
-    Copyright (C) 2026 bvbhu (N32H49x port for vial-qmk-stg-n32h481)
+    Copyright (C) 2026 bvbhu (N32H48x port for vial-qmk-stg-n32h481)
 
-    Memory setup derived from the Nsing Technologies N32H49x flash linker
-    script (n32h49x_flash.ld, SDK, 2025) and the ChibiOS rules.ld layout.
+    Memory setup derived from the Nsing Technologies N32H48x flash linker
+    script (n32h48x_flash.ld, SDK, 2025) and the ChibiOS rules.ld layout.
 
     N32H481REL7K: 512K flash, 192K SRAM (+ 32K CCM, not used here).
 */

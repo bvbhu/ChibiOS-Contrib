@@ -15,7 +15,7 @@
 */
 
 /*
- * N32H49x ADCv1 low level driver.
+ * N32H48x ADCv1 low level driver.
  *
  * NOTES:
  *  - Only ADC1 is implemented (single conversion, interrupt driven, no
@@ -131,7 +131,6 @@ static void adc_lld_hw_init(void) {
   /* 12-bit resolution. */
   ADC1->CTRL3 = ADC_CTRL3_RES;
   ADC1->INTEN = 0U;
-  ADC1->DSMUCHMASK = 0x0007FFFFU;
 }
 #endif /* N32_ADC_USE_ADC1 */
 

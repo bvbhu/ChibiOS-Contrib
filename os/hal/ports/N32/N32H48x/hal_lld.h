@@ -1,7 +1,7 @@
 /*
     ChibiOS - Copyright (C) 2026 bvbhu (vial-qmk-stg-n32h481 fork)
 
-    N32H49x HAL low level driver header (NSING N32H481REL7K).
+    N32H48x HAL low level driver header (NSING N32H481REL7K).
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -34,10 +34,10 @@ extern "C" {
 /**
  * @brief   Platform name.
  */
-#define PLATFORM_NAME                  "N32H49x"
+#define PLATFORM_NAME                  "N32H48x"
 
 /**
- * @brief   N32H49x device type.
+ * @brief   N32H48x device type.
  */
 #if !defined(N32H481RE) || defined(__DOXYGEN__)
 #define N32H481RE

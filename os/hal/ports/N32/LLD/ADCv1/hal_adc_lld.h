@@ -59,7 +59,7 @@
 /**
  * @name    Sampling rates
  * @details Values match the N32 SAMPTx register field encoding
- *          (4 bits per channel), see SDK n32h49x_adc.h
+ *          (4 bits per channel), see SDK N32H48x_adc.h
  *          ADC_SAMP_TIME_CYCLES_*.
  * @{
  */

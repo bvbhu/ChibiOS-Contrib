@@ -40,7 +40,7 @@
 #define EP0_MAX_INSIZE          64
 #define EP0_MAX_OUTSIZE         64
 
-/* N32H49x USBHS clock enable/reset helpers. The USBHS is on the AHB bus. */
+/* N32H48x USBHS clock enable/reset helpers. The USBHS is on the AHB bus. */
 static void usb_clock_enable(void) {
   RCC->AHBPCLKEN |= RCC_AHBPCLKEN_USBHSEN;
   /* The PLL-based 48MHz clock for USBHS must be enabled as well:

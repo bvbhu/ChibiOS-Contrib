@@ -56,7 +56,7 @@
 
 /**
  * @brief   USBHS driver enable switch.
- * @details If set to @p TRUE the support for the N32H49x USBHS is included.
+ * @details If set to @p TRUE the support for the N32H48x USBHS is included.
  * @note    The default is @p FALSE
  */
 #if !defined(N32_USB_USE_OTG1) || defined(__DOXYGEN__)
@@ -399,7 +399,7 @@ struct USBDriver {
 
 /**
  * @brief   Connects the USB device.
- * @note    On N32H49x the D+ pull-up is controlled by the soft disconnect
+ * @note    On N32H48x the D+ pull-up is controlled by the soft disconnect
  *          bit (DCTRL.SFTDIS), clearing it connects the device.
  *
  * @notapi

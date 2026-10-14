@@ -2,7 +2,7 @@
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
     ChibiOS - Copyright (C) 2023..2024 HorrorTroll
     ChibiOS - Copyright (C) 2023..2024 Zhaqian
-    ChibiOS - Copyright (C) 2026 bvbhu (N32H49x port for vial-qmk-stg-n32h481)
+    ChibiOS - Copyright (C) 2026 bvbhu (N32H48x port for vial-qmk-stg-n32h481)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    N32H49x/n32_isr.c
- * @brief   N32H49x ISR handler code.
+ * @file    N32H48x/n32_isr.c
+ * @brief   N32H48x ISR handler code.
  *
- * @addtogroup N32H49x_ISR
+ * @addtogroup N32H48x_ISR
  * @{
  */
 

@@ -2,7 +2,7 @@
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
     ChibiOS - Copyright (C) 2023..2024 HorrorTroll
     ChibiOS - Copyright (C) 2023..2024 Zhaqian
-    ChibiOS - Copyright (C) 2026 bvbhu (N32H49x port for vial-qmk-stg-n32h481)
+    ChibiOS - Copyright (C) 2026 bvbhu (N32H48x port for vial-qmk-stg-n32h481)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 */
 
 /**
- * @file    N32H49x/n32_isr.h
- * @brief   N32H49x ISR handler header.
+ * @file    N32H48x/n32_isr.h
+ * @brief   N32H48x ISR handler header.
  *
- * @addtogroup N32H49x_ISR
+ * @addtogroup N32H48x_ISR
  * @{
  */
 
@@ -54,8 +54,10 @@
 /** @} */
 
 /**
- * @name    N32H49x ISR names
+ * @name    N32H48x ISR names
  * @brief   IRQn to vector slot mapping (VectorXX = 0x40 + IRQn * 4).
+ *          Vector layout matches the N32H48x series (n32h47x_48x.h) as
+ *          defined in the N32H481 user manual, Table 6-1.
  * @{
  */
 #define N32_WWDG_HANDLER                 Vector40
@@ -105,7 +107,7 @@
 #define N32_ATIM2_UP_HANDLER             VectorF0
 #define N32_ATIM2_TRG_COM_HANDLER        VectorF4
 #define N32_ATIM2_CC_HANDLER             VectorF8
-#define N32_ADC3_HANDLER                 VectorFC
+#define N32_ADC3_4_HANDLER               VectorFC
 #define N32_UCDR_HANDLER                 Vector100
 #define N32_SDIO_HANDLER                 Vector104
 #define N32_GTIM4_HANDLER                Vector108
@@ -120,7 +122,6 @@
 #define N32_DMA2_CH4_HANDLER             Vector12C
 #define N32_DMA2_CH5_HANDLER             Vector130
 #define N32_SRAM_ERR_HANDLER             Vector134
-#define N32_USB_HS_HANDLER               Vector138
 #define N32_FDCAN2_INT0_HANDLER          Vector13C
 #define N32_FDCAN2_INT1_HANDLER          Vector140
 #define N32_FDCAN3_INT0_HANDLER          Vector144
@@ -136,27 +137,14 @@
 #define N32_UART7_HANDLER                Vector16C
 #define N32_DMA1_CH8_HANDLER             Vector170
 #define N32_DMA2_CH8_HANDLER             Vector174
-#define N32_DVP_HANDLER                  Vector178
 #define N32_SAC_HANDLER                  Vector17C
 #define N32_SMPU_HANDLER                 Vector180
-#define N32_FEMC_HANDLER                 Vector184
 #define N32_USB_HS_EPx_OUT_HANDLER       Vector188
 #define N32_USB_HS_EPx_IN_HANDLER        Vector18C
 #define N32_USB_HS_WKUP_HANDLER          Vector190
 #define N32_UART8_HANDLER                Vector194
 #define N32_SPI4_HANDLER                 Vector198
-#define N32_ETH_HANDLER                  Vector19C
-#define N32_ETH_WKUP_HANDLER             Vector1A0
 #define N32_GTIM5_HANDLER                Vector1A4
-#define N32_DSMU_FLT0_HANDLER            Vector1A8
-#define N32_DSMU_FLT1_HANDLER            Vector1AC
-#define N32_DSMU_FLT2_HANDLER            Vector1B0
-#define N32_DSMU_FLT3_HANDLER            Vector1B4
-#define N32_GTIM7_HANDLER                Vector1B8
-#define N32_GTIM8_HANDLER                Vector1BC
-#define N32_GTIM9_HANDLER                Vector1C0
-#define N32_GTIM10_HANDLER               Vector1C4
-#define N32_DAC1_2_UNDERFLOW_HANDLER     Vector1C8
 #define N32_ATIM3_BRK_HANDLER            Vector1CC
 #define N32_ATIM3_UP_HANDLER             Vector1D0
 #define N32_ATIM3_TRG_COM_HANDLER        Vector1D4
@@ -164,11 +152,18 @@
 #define N32_GTIM6_HANDLER                Vector1DC
 #define N32_LPTIM1_WKUP_HANDLER          Vector1E0
 #define N32_LPTIM2_WKUP_HANDLER          Vector1E4
+#define N32_FMAC_HANDLER                 Vector1E8
 #define N32_CORDIC_HANDLER               Vector1EC
 #define N32_SPI5_HANDLER                 Vector1F0
 #define N32_SPI6_HANDLER                 Vector1F4
-#define N32_USART9_HANDLER               Vector1F8
-#define N32_UART10_HANDLER               Vector1FC
+#define N32_GTIM7_HANDLER                Vector1F8
+#define N32_GTIM8_HANDLER                Vector1FC
+#define N32_GTIM9_HANDLER                Vector200
+#define N32_GTIM10_HANDLER               Vector204
+#define N32_DAC1_2_3_4_UNDERFLOW_HANDLER Vector208
+#define N32_DAC5_6_7_8_UNDERFLOW_HANDLER Vector20C
+#define N32_USB_HS_HANDLER               Vector210
+#define N32_FEMC_HANDLER                 Vector214
 /** @} */
 
 /*===========================================================================*/

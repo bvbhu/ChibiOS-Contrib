@@ -18,7 +18,7 @@
 
 /**
  * @file    USBOTGv1/n32_usb.h
- * @brief   N32H49x USBHS OTG registers layout header.
+ * @brief   N32H48x USBHS OTG registers layout header.
  *
  * @addtogroup USB
  * @{
@@ -33,9 +33,9 @@
 #define N32_USBHS_FIFO_MEM_SIZE         1280
 
 /*===========================================================================*/
-/* Register layout: N32H49x uses its own field names (DINEPCTRL etc.) which  */
+/* Register layout: N32H48x uses its own field names (DINEPCTRL etc.) which  */
 /* differ from the generic DWC OTG names used by the driver code, so we     */
-/* define a struct with the generic names mapped onto the N32H49x layout.   */
+/* define a struct with the generic names mapped onto the N32H48x layout.   */
 /*===========================================================================*/
 
 /**
@@ -60,7 +60,7 @@ typedef struct {
 
 /**
  * @brief   Device input endpoint registers group.
- * @note    The N32H49x names are DINEPCTRL, DINEPINTSTS, DINEPTXSIZ,
+ * @note    The N32H48x names are DINEPCTRL, DINEPINTSTS, DINEPTXSIZ,
  *          DINEPDMADD, DINEPTXFSTS (offsets 0x00/0x08/0x10/0x14/0x18).
  */
 typedef struct {
@@ -81,7 +81,7 @@ typedef struct {
 
 /**
  * @brief   Device output endpoint registers group.
- * @note    The N32H49x names are DOUTEPCTRL, DOUTEPINTSTS, DOUTEPTXSIZ,
+ * @note    The N32H48x names are DOUTEPCTRL, DOUTEPINTSTS, DOUTEPTXSIZ,
  *          DOUTEPDMADD (offsets 0x00/0x08/0x10/0x14).
  */
 typedef struct {
@@ -125,7 +125,7 @@ typedef struct {
   volatile uint32_t resvd30;
   volatile uint32_t resvd34;
   volatile uint32_t GCCFG;      /**< @brief General controller config
-                                          (unused on N32H49x).               */
+                                          (unused on N32H48x).               */
   volatile uint32_t GUID;       /**< @brief Controller ID register (CID).   */
   volatile uint32_t resvd58[48];
   volatile uint32_t HPTXFSIZ;   /**< @brief Host periodic transmit FIFO size
@@ -199,7 +199,7 @@ typedef struct {
 } n32_otg_t;
 
 /*===========================================================================*/
-/* Register bit definitions: mapped onto the N32H49x CMSIS header names     */
+/* Register bit definitions: mapped onto the N32H48x CMSIS header names     */
 /* (USBHS_*). The generic DWC names are defined as aliases so the driver    */
 /* code can use the standard names.                                         */
 /*===========================================================================*/

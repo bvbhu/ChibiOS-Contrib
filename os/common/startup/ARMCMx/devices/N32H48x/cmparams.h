@@ -2,7 +2,7 @@
     ChibiOS/RT - Copyright (C) 2006-2014 Giovanni Di Sirio.
                            (C) 2023-2024 HorrorTroll (https://github.com/HorrorTroll)
                            (C) 2023-2024 Zhaqian (https://github.com/zhaqian12)
-                           (C) 2026 bvbhu (N32H49x port for vial-qmk-stg-n32h481)
+                           (C) 2026 bvbhu (N32H48x port for vial-qmk-stg-n32h481)
 
     This file is part of ChibiOS/RT.
 
@@ -21,13 +21,13 @@
 */
 
 /**
- * @file        N32H49x/cmparams.h
- * @brief       ARM Cortex-M4 parameters for the Nationstech N32H49x
+ * @file        N32H48x/cmparams.h
+ * @brief       ARM Cortex-M4 parameters for the Nationstech N32H48x
  *
- * @defgroup    ARMCMx_N32H49x Nationstech N32H49x Specific Parameters
+ * @defgroup    ARMCMx_N32H48x Nationstech N32H48x Specific Parameters
  * @ingroup     ARMCMx_SPECIFIC
  * @details     This file contains the Cortex-M4 specific parameters for the
- *              Nationstech N32H49x platform.
+ *              Nationstech N32H48x platform (N32H481RE device).
  * @{
  */
 
@@ -58,10 +58,17 @@
  * @brief   Number of interrupt vectors.
  * @note    This number does not include the 16 system vectors and must be
  *          rounded to a multiple of 8.
- * @note    N32H49x has IRQn up to 111 (UART10_IRQn), so 112 vectors are
- *          required.
+ * @note    N32H48x has IRQn up to 117 (FEMC_IRQn), so 120 vectors are
+ *          required (118 maskable channels per the N32H481 user manual).
  */
-#define CORTEX_NUM_VECTORS      112
+#define CORTEX_NUM_VECTORS      120
+
+/* If the device type is not externally defined, for example from the Makefile,
+   then a file named board.h is included. This file must contain a device
+   definition compatible with the include file.*/
+#if !defined(N32H481RE) && !defined(__DOXYGEN__)
+#include "board.h"
+#endif
 
 /* The following code is not processed when the file is included from an
    asm module.*/
@@ -70,7 +77,7 @@
 /* Including the device CMSIS header. Note, we are not using the definitions
    from this header because we need this file to be usable also from
    assembler source files. We verify that the info matches instead.*/
-#include "n32h49x.h"
+#include "n32h47x_48x.h"
 
 /*lint -save -e9029 [10.4] Signedness comes from external files, it is
   unpredictable but gives no problems.*/

@@ -1,4 +1,4 @@
-# List of the ChibiOS generic N32H49x startup and CMSIS files.
+# List of the ChibiOS generic N32H48x startup and CMSIS files.
 STARTUPSRC = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/crt1.c
 
 STARTUPASM = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/crt0_v7m.S \
@@ -6,9 +6,9 @@ STARTUPASM = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/crt0_v7m.S \
 
 STARTUPINC = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC \
              $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/ld \
-             $(CHIBIOS_CONTRIB)/os/common/startup/ARMCMx/devices/N32H49x \
+             $(CHIBIOS_CONTRIB)/os/common/startup/ARMCMx/devices/N32H48x \
              $(CHIBIOS)/os/common/ext/ARM/CMSIS/Core/Include \
-             $(CHIBIOS_CONTRIB)/os/common/ext/CMSIS/NSING/N32H49x
+             $(CHIBIOS_CONTRIB)/os/common/ext/CMSIS/NSING/N32H48x
 
 STARTUPLD  = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/ld
 STARTUPLD_CONTRIB  = $(CHIBIOS_CONTRIB)/os/common/startup/ARMCMx/compilers/GCC/ld
