@@ -12,7 +12,7 @@
  */
 MEMORY
 {
-    flash0 (rx) : org = 0x08000000, len = 512k
+    flash0 (rx) : org = 0x08000000, len = 496k /* last 16K reserved for on-chip EEPROM (2 x 8K pages) */
     flash1 (rx) : org = 0x00000000, len = 0
     flash2 (rx) : org = 0x00000000, len = 0
     flash3 (rx) : org = 0x00000000, len = 0
@@ -76,3 +76,4 @@ REGION_ALIAS("HEAP_RAM", ram0);
 
 /* Generic rules inclusion.*/
 INCLUDE rules.ld
+
