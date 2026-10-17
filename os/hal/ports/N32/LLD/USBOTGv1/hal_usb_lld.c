@@ -40,12 +40,45 @@
 #define EP0_MAX_INSIZE          64
 #define EP0_MAX_OUTSIZE         64
 
-/* N32H48x USBHS clock enable/reset helpers. The USBHS is on the AHB bus. */
+/* N32H48x USBHS clock enable/reset helpers. The USBHS is on the AHB bus.
+   NOTE: the USBHS PHY needs an explicit clock source and frequency
+   selection in RCC_USBHSCTRL1 -- without it the default is HSE, which is
+   not enabled on this board (the port runs from HSI + PLL), so the PHY
+   would never lock and USB would not enumerate.
+
+   Clock chain used here (matches the SDK USBHS examples, adapted to the
+   HSI-based 240MHz PLL):
+     system PLL (240MHz) -> ADCOTGPLLPRES /10 -> 24MHz
+     USBHSCTRL1.USBHSSEL = 1      : clock source = PLL prescaler output
+     USBHSCTRL1.USBHSFSEL = 24MHz : tell the PHY the input frequency
+     USBHSCTRL1.PLLBW    = 1      : bandwidth setting for != 16MHz input
+*/
 static void usb_clock_enable(void) {
+  /* Feed the USBHS/ADC prescaler from the main PLL and divide by 10:
+     240MHz / 10 = 24MHz (a valid USBHS FSEL frequency). */
+  RCC->CFG2 &= ~(RCC_CFG2_ADCOTGPLLPRES | RCC_CFG2_ADCOTGPLLSEL);
+  RCC->CFG2 |= RCC_CFG2_ADCOTGPLLPRES_DIV10 | RCC_CFG2_ADCOTGPLLEN;
+
+  /* USBHS PHY clock source / frequency / bandwidth. */
+  RCC->USBHSCTRL1 = (RCC->USBHSCTRL1 &
+                     ~(RCC_USBHSCTRL1_USBHSFSEL | RCC_USBHSCTRL1_PLLBW |
+                       RCC_USBHSCTRL1_USBHSSEL)) |
+                    RCC_USBHSCTRL1_USBHSSEL |    /* source: PLL prescaler  */
+                    RCC_USBHSCTRL1_USBHSFSEL_1 | /* FSEL: 24MHz            */
+                    RCC_USBHSCTRL1_PLLBW;        /* BW: other than 16MHz   */
+
+  /* PHY transmitter tuning (from the SDK USBHS device examples). */
+  RCC->USBHSCTRL2 = (RCC->USBHSCTRL2 &
+                     ~((0xFU << 4) | (0x3U << 12) | (0x3U << 14) | (0x3U << 16))) |
+                    (0x5U << 4) |   /* TX vref TUNE   */
+                    (0x3U << 12) |  /* TX rise TUNE   */
+                    (0x3U << 14) |  /* TX res TUNE    */
+                    (0x3U << 16);   /* TX preemp TUNE */
+
+  /* Reset the USBHS PHY, then enable the peripheral clock. */
+  RCC->AHBPRST |= RCC_AHBPRST_USBHSPHYRST;
+  RCC->AHBPRST &= ~RCC_AHBPRST_USBHSPHYRST;
   RCC->AHBPCLKEN |= RCC_AHBPCLKEN_USBHSEN;
-  /* The PLL-based 48MHz clock for USBHS must be enabled as well:
-     RCC_CFG2_ADCOTGPLLEN (bit 8) enables the ADC/USBHS 240M or PLL clock. */
-  RCC->CFG2 |= RCC_CFG2_ADCOTGPLLEN;
 }
 
 static void usb_clock_disable(void) {
