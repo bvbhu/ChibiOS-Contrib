@@ -75,6 +75,13 @@ static void usb_clock_enable(void) {
                     (0x3U << 14) |  /* TX res TUNE    */
                     (0x3U << 16);   /* TX preemp TUNE */
 
+  /* Device-mode PHY enable, as the SDK does in USB_SetCurrentMode()
+     (DEVICE_MODE branch): IDDQEN=1 and the bit-31 transceiver-path
+     select must be set, otherwise the built-in PHY is not in device
+     operation and the host never sees the device. */
+  RCC->USBHSCTRL2 |= RCC_USBHSCTRL2_IDDQEN;
+  RCC->USBHSCTRL1 |= ((uint32_t)0x01U << 31);
+
   /* Reset the USBHS PHY, then enable the peripheral clock. */
   RCC->AHBPRST |= RCC_AHBPRST_USBHSPHYRST;
   RCC->AHBPRST &= ~RCC_AHBPRST_USBHSPHYRST;
@@ -156,22 +163,33 @@ static const n32_otg_params_t hsparams = {
 
 static void otg_core_reset(USBDriver *usbp) {
   n32_otg_t *otgp = usbp->otg;
+  unsigned count;
 
-  /* Wait AHB idle condition.*/
-  while ((otgp->GRSTCTL & GRSTCTL_AHBIDLE) == 0)
-    ;
+  /* Wait AHB idle condition, with a bounded timeout so a missing PHY
+     clock cannot hang the boot (SDK uses a 200000-iteration limit).*/
+  count = 0;
+  while ((otgp->GRSTCTL & GRSTCTL_AHBIDLE) == 0) {
+    if (++count > 200000)
+      return;
+  }
 
   /* Core reset and delay of at least 3 PHY cycles.*/
   otgp->GRSTCTL = GRSTCTL_CSFTRST;
   osalSysPolledDelayX(12);
-  while ((otgp->GRSTCTL & GRSTCTL_CSFTRST) != 0)
-    ;
+  count = 0;
+  while ((otgp->GRSTCTL & GRSTCTL_CSFTRST) != 0) {
+    if (++count > 200000)
+      break;
+  }
 
   osalSysPolledDelayX(18);
 
   /* Wait AHB idle condition again.*/
-  while ((otgp->GRSTCTL & GRSTCTL_AHBIDLE) == 0)
-    ;
+  count = 0;
+  while ((otgp->GRSTCTL & GRSTCTL_AHBIDLE) == 0) {
+    if (++count > 200000)
+      return;
+  }
 }
 
 static void otg_disable_ep(USBDriver *usbp) {
@@ -830,12 +848,17 @@ void usb_lld_start(USBDriver *usbp) {
 
       /* - Forced device mode.
          - USB turn-around time = USBTRDTIM_VALUE_FS.
-         - Full Speed 1.1 PHY.*/
-      otgp->GUSBCFG = GUSBCFG_FDEVMODE | GUSBCFG_USBTRDTIM(USBTRDTIM_VALUE_FS) |
-                      GUSBCFG_PHYSEL;
+         - Built-in Full Speed PHY: the SDK clears GCFG.PHYSEL in
+           USB_CoreInit() (PHYSEL=1 would select an external PHY and
+           leave DP/DM undriven -- the host would never see the device),
+           so GUSBCFG must NOT set PHYSEL here. */
+      otgp->GUSBCFG = GUSBCFG_FDEVMODE | GUSBCFG_USBTRDTIM(USBTRDTIM_VALUE_FS);
 
-      /* 48MHz 1.1 PHY.*/
-      otgp->DCFG = 0x02200000 | DCFG_DEVSPD_FS11;
+      /* Device speed: HS PHY running in Full Speed (DEVSPD=1), matching
+         SDK USB_InitDevSpeed(USB_SPEED_PARAM_HIGH_IN_FULL). The previous
+         0x02200000 value was an AT32-import leftover that wrote into the
+         PSITVL/reserved bits. */
+      otgp->DCFG = DCFG_DEVSPD_HS_FS;
     }
 #endif
 
