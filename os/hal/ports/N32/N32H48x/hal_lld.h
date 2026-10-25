@@ -49,8 +49,8 @@ extern "C" {
 
 #define N32_SYSCLK_MAX                240000000
 #define N32_HCLK_MAX                  240000000
-#define N32_PCLK1_MAX                 120000000
-#define N32_PCLK2_MAX                 120000000
+#define N32_PCLK1_MAX                 180000000
+#define N32_PCLK2_MAX                 180000000
 #define N32_PLLIN_MIN                 1000000
 #define N32_PLLIN_MAX                 24000000
 #define N32_PLLOUT_MIN                48000000
@@ -70,11 +70,11 @@ extern "C" {
 /**
  * @brief   System clock switch (SCLKSW field).
  */
-#define N32_SCLKSW_HSI                (0 << 27)
-#define N32_SCLKSW_HSE                (1 << 27)
-#define N32_SCLKSW_PLL                (2 << 27)
-#define N32_SCLKSW_USBHS240M          (5 << 27)
-#define N32_SCLKSW_EXTPLL             (6 << 27)
+/* N32H48x (n32h47x_48x.h): SCLKSW field is bits 26-27 (0x0C000000):
+   HSI=00, HSE=01 (bit26), PLL=10 (bit27). */
+#define N32_SCLKSW_HSI                (0 << 26)
+#define N32_SCLKSW_HSE                (1 << 26)
+#define N32_SCLKSW_PLL                (1 << 27)
 
 /**
  * @brief   PLL clock source (PLLSRC field).
@@ -98,20 +98,24 @@ extern "C" {
 /**
  * @brief   APB1 prescaler (APB1PRES field).
  */
-#define N32_APB1DIV_DIV1              (0 << 11)
-#define N32_APB1DIV_DIV2              (4 << 11)
-#define N32_APB1DIV_DIV4              (5 << 11)
-#define N32_APB1DIV_DIV8              (6 << 11)
-#define N32_APB1DIV_DIV16             (7 << 11)
+/* APB1PRES field is bits 9-11 (0x0E00): DIV1=0b000, DIV2=0b100,
+   DIV4=0b101, DIV8=0b110, DIV16=0b111. */
+#define N32_APB1DIV_DIV1              (0 << 9)
+#define N32_APB1DIV_DIV2              (4 << 9)
+#define N32_APB1DIV_DIV4              (5 << 9)
+#define N32_APB1DIV_DIV8              (6 << 9)
+#define N32_APB1DIV_DIV16             (7 << 9)
 
 /**
  * @brief   APB2 prescaler (APB2PRES field).
  */
-#define N32_APB2DIV_DIV1              (0 << 14)
-#define N32_APB2DIV_DIV2              (4 << 14)
-#define N32_APB2DIV_DIV4              (5 << 14)
-#define N32_APB2DIV_DIV8              (6 << 14)
-#define N32_APB2DIV_DIV16             (7 << 14)
+/* APB2PRES field is bits 12-14 (0x7000): DIV1=0b000, DIV2=0b100,
+   DIV4=0b101, DIV8=0b110, DIV16=0b111. */
+#define N32_APB2DIV_DIV1              (0 << 12)
+#define N32_APB2DIV_DIV2              (4 << 12)
+#define N32_APB2DIV_DIV4              (5 << 12)
+#define N32_APB2DIV_DIV8              (6 << 12)
+#define N32_APB2DIV_DIV16             (7 << 12)
 
 /*===========================================================================*/
 /* Clock and bus settings.                                                   */
@@ -123,8 +127,6 @@ extern "C" {
 #define N32_SCLKSEL_HSI               0
 #define N32_SCLKSEL_HSE               1
 #define N32_SCLKSEL_PLL               2
-#define N32_SCLKSEL_USBHS240M         3
-#define N32_SCLKSEL_EXTPLL            4
 
 /*===========================================================================*/
 /* Clock and bus settings.                                                   */

@@ -116,8 +116,9 @@ void n32_clock_init(void) {
   /* Resets PLL fields in CFG. */
   RCC->CFG &= (uint32_t)0xFFFFFE00U;
 
-  /* Resets PLLCTRL, LPFC bits are restored by the configuration below. */
-  RCC->PLLCTRL = (uint32_t)0x00046346U;
+  /* Resets PLLINPRES, PLLOUTPRES and SCLKPLLSEL bits (like SDK SystemInit).
+     LPFC2/LPFR/LPFC1 bits are restored by the configuration below. */
+  RCC->PLLCTRL &= (uint32_t)0xFFC0FFFFU;
 
   /* Enable ICACHE and disable Prefetch Buffer. */
   FLASH->AC |= (uint32_t)(FLASH_AC_ICAHEN);
@@ -163,15 +164,16 @@ void n32_clock_init(void) {
   /* Set PLL multiply factor. */
   tmpregister |= N32_PLLMULFCT;
 
-  /* Set LPFC2/LPFR/LPFC1 bits. */
+  /* Set LPFC2/LPFR/LPFC1 bits (N32H48x layout: LPFC2=bits12-14,
+     LPFR=bits8-11, LPFC1=bits4-7). Note: no SCLKPLLSEL bits here. */
   if ((tmpregister & RCC_CFG_PLLMULFCT) <= RCC_CFG_PLLMULFCT24) {
-    tmpregister1 |= (uint32_t)0x00306340;
+    tmpregister1 |= (uint32_t)0x00006340;
   }
   else if ((tmpregister & RCC_CFG_PLLMULFCT) <= RCC_CFG_PLLMULFCT40) {
-    tmpregister1 |= (uint32_t)0x00306740;
+    tmpregister1 |= (uint32_t)0x00006740;
   }
   else {
-    tmpregister1 |= (uint32_t)0x00306C40;
+    tmpregister1 |= (uint32_t)0x00006C40;
   }
 
   /* Set PLLINPRES bits. */
