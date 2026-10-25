@@ -46,18 +46,23 @@
    not enabled on this board (the port runs from HSI + PLL), so the PHY
    would never lock and USB would not enumerate.
 
-   Clock chain used here (matches the SDK USBHS examples, adapted to the
-   HSI-based 240MHz PLL):
-     system PLL (240MHz) -> ADCOTGPLLPRES /10 -> 24MHz
-     USBHSCTRL1.USBHSSEL = 1      : clock source = PLL prescaler output
+   Clock chain used here (the SDK's "PLLPRES" path, adapted to the
+   HSI-based 240MHz system PLL):
+     system PLL (240MHz) -> RCC_CFG3.USBPLLPRES /10 -> 24MHz
+     USBHSCTRL1.USBHSSEL = 1      : clock source = that PLL prescaler output
      USBHSCTRL1.USBHSFSEL = 24MHz : tell the PHY the input frequency
      USBHSCTRL1.PLLBW    = 1      : bandwidth setting for != 16MHz input
+
+   IMPORTANT: the prescaler that feeds USBHSCTRL1.USBHSSEL=1 lives in
+   RCC_CFG3 (USBPLLSEL / USBPLLPRES), NOT in RCC_CFG2 (ADCOTGPLL*), which
+   is the ADC/OTG-PLL block.  Feeding the PHY from CFG2 left the USBHS
+   clock mux un-driven, so the PHY never locked and the host saw nothing.
 */
 static void usb_clock_enable(void) {
-  /* Feed the USBHS/ADC prescaler from the main PLL and divide by 10:
+  /* Select the system PLL as the USB-clock source and divide it by 10:
      240MHz / 10 = 24MHz (a valid USBHS FSEL frequency). */
-  RCC->CFG2 &= ~(RCC_CFG2_ADCOTGPLLPRES | RCC_CFG2_ADCOTGPLLSEL);
-  RCC->CFG2 |= RCC_CFG2_ADCOTGPLLPRES_DIV10 | RCC_CFG2_ADCOTGPLLEN;
+  RCC->CFG3 &= ~(RCC_CFG3_USBPLLSEL | RCC_CFG3_USBPLLPRES);
+  RCC->CFG3 |= RCC_CFG3_USBPLLPRES_DIV10;   /* USBPLLSEL=0 -> system PLL */
 
   /* USBHS PHY clock source / frequency / bandwidth. */
   RCC->USBHSCTRL1 = (RCC->USBHSCTRL1 &
