@@ -178,14 +178,18 @@ static void otg_core_reset(USBDriver *usbp) {
       return;
   }
 
-  /* Core reset and delay of at least 3 PHY cycles.*/
-  otgp->GRSTCTL = GRSTCTL_CSFTRST;
+  /* Core reset.  N32 (DWC-style) core does not self-clear CSRST, so
+     follow the SDK (USB_CoreReset): OR-in CSRST, wait for SRSTDNE and
+     then clear CSRST manually.  Writing the bare CSRST value would also
+     clear the AHBIDLE status bit and leave the core stuck in reset. */
+  otgp->GRSTCTL |= GRSTCTL_CSFTRST;
   osalSysPolledDelayX(12);
   count = 0;
-  while ((otgp->GRSTCTL & GRSTCTL_CSFTRST) != 0) {
+  while ((otgp->GRSTCTL & GRSTCTL_SRSTDNE) == 0) {
     if (++count > 200000)
       break;
   }
+  otgp->GRSTCTL &= ~GRSTCTL_CSFTRST;
 
   osalSysPolledDelayX(18);
 
@@ -850,7 +854,19 @@ void usb_lld_start(USBDriver *usbp) {
       nvicEnableVector(USB_HS_EPx_OUT_IRQn, N32_USB_OTG1_IRQ_PRIORITY);
       nvicEnableVector(USB_HS_EPx_IN_IRQn, N32_USB_OTG1_IRQ_PRIORITY);
       nvicEnableVector(USB_HS_WKUP_IRQn, N32_USB_OTG1_IRQ_PRIORITY);
+    }
+#endif
 
+    /* PHY enabled.*/
+    otgp->PCGCCTL = 0;
+
+    /* Soft core reset.  Must be done BEFORE programming GUSBCFG/DCFG:
+       the reset returns those registers to their default values, so a
+       device-mode write issued before the reset would be lost. */
+    otg_core_reset(usbp);
+
+#if N32_USB_USE_OTG1
+    if (&USBD1 == usbp) {
       /* - Forced device mode.
          - USB turn-around time = USBTRDTIM_VALUE_FS.
          - Built-in Full Speed PHY: the SDK clears GCFG.PHYSEL in
@@ -866,12 +882,6 @@ void usb_lld_start(USBDriver *usbp) {
       otgp->DCFG = DCFG_DEVSPD_HS_FS;
     }
 #endif
-
-    /* PHY enabled.*/
-    otgp->PCGCCTL = 0;
-
-    /* Soft core reset.*/
-    otg_core_reset(usbp);
 
     /* Interrupts on TXFIFOs half empty.*/
     otgp->GAHBCFG = 0;
