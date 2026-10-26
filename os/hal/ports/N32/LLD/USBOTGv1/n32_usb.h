@@ -1,4 +1,4 @@
-/*
+﻿/*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
     ChibiOS - Copyright (C) 2023..2024 HorrorTroll
     ChibiOS - Copyright (C) 2023..2024 Zhaqian
@@ -132,7 +132,7 @@ typedef struct {
                                           register.                          */
   volatile uint32_t DIEPTXF[8]; /**< @brief Device IN endpoint transmit FIFO
                                           size registers (DINEPPTXFSIZ[8]).  */
-  volatile uint32_t resvd128[8];
+  volatile uint32_t resvd128[7];  /**< @brief Reserved (0x124-0x13F). */
   volatile uint32_t resvd140[176];
   volatile uint32_t HCFG;       /**< @brief Host configuration register.    */
   volatile uint32_t HFIR;       /**< @brief Host frame interval register
