@@ -1234,6 +1234,14 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
       usbp->otg->oe[ep].DOEPCTL |= DOEPCTL_SETODDFR;
   }
 
+  /* Make sure the endpoint interrupt is unmasked before arming the endpoint.
+     On this part a bus reset (or the disable-all path) clears DAINTMSK down to
+     OUT0|IN0 and the OUT interrupts of the data endpoints are only restored
+     when the host re-sends SET_CONFIGURATION. Re-arming here guarantees the
+     completion interrupt of the transfer we are about to start is delivered,
+     even if the enumeration path did not re-enable it. */
+  usbp->otg->DAINTMSK |= DAINTMSK_OUTEPTMSK(ep);
+
   /* Starting operation.*/
   usbp->otg->oe[ep].DOEPCTL |= DOEPCTL_EPTENA | DOEPCTL_CNAK;
 }
