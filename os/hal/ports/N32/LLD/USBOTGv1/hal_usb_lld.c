@@ -1190,9 +1190,22 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
            usbp->epc[ep]->out_maxsize;
   rxsize = (pcnt * usbp->epc[ep]->out_maxsize + 3U) & 0xFFFFFFFCU;
 
-  /* Setting up transaction parameters in DOEPTSIZ.*/
-  usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_SETUPCNT(3) | DOEPTSIZ_PKTCNT(pcnt) |
-                               DOEPTSIZ_XFERSIZE(rxsize);
+  /* Setting up transaction parameters in DOEPTSIZ.
+     NOTE (N32-specific): on this part the STUPPCNT/RXDPID field
+     (DOUTEPTXSIZ bits 29:30) is significant for EVERY OUT endpoint, not only
+     EP0.  Writing SETUPCNT(3) on a non-EP0 endpoint programs RXDPID = 3
+     (expect SETUP packets) so the endpoint never accepts the DATA0/DATA1
+     OUT packets sent by the host -- raw HID reports never arrive and Vial
+     hangs.  Only EP0 needs SETUPCNT(3); other endpoints must keep
+     RXDPID = 0 (DATA0), which is what the vendor SDK does. */
+  if (ep == 0) {
+    usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_SETUPCNT(3) | DOEPTSIZ_PKTCNT(pcnt) |
+                                 DOEPTSIZ_XFERSIZE(rxsize);
+  }
+  else {
+    usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_PKTCNT(pcnt) |
+                                 DOEPTSIZ_XFERSIZE(rxsize);
+  }
 
   /* Special case of isochronous endpoint.*/
   if ((usbp->epc[ep]->ep_mode & USB_EP_MODE_TYPE) == USB_EP_MODE_TYPE_ISOC) {
