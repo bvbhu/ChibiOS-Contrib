@@ -999,6 +999,24 @@ void usb_lld_reset(USBDriver *usbp) {
   otgp->DIEPTXF0 = DIEPTXF_INEPTXFDEP(ep0config.in_maxsize / 4) |
                    DIEPTXF_INEPTXFSTADDR(otg_ram_alloc(usbp,
                                                   ep0config.in_maxsize / 4));
+
+  /* Re-arm the interrupts of the endpoints that are already registered in
+     the endpoint table. A bus reset can happen after the host has configured
+     the device (re-enumeration, cable glitch, host resume); in that case the
+     host may not send another SET_CONFIGURATION, so the data endpoint
+     interrupts would remain masked forever - the device keeps enumerating but
+     never delivers OUT reports (symptom: enumeration OK, Vial hangs).
+     Re-arming from the registered configuration is safe: the endpoints are
+     not enabled in hardware yet (they have just been put in NAK mode above),
+     so no spurious interrupts are generated. */
+  for (i = 1U; i <= usbp->otgparams->num_endpoints; i++) {
+    if (usbp->epc[i] == NULL)
+      continue;
+    if (usbp->epc[i]->out_state != NULL)
+      otgp->DAINTMSK |= DAINTMSK_OUTEPTMSK(i);
+    if (usbp->epc[i]->in_state != NULL)
+      otgp->DAINTMSK |= DAINTMSK_INEPTMSK(i);
+  }
 }
 
 /**
