@@ -1,4 +1,4 @@
-﻿/*
+/*
     ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
     ChibiOS - Copyright (C) 2023..2024 HorrorTroll
     ChibiOS - Copyright (C) 2023..2024 Zhaqian
@@ -438,8 +438,15 @@ typedef struct {
 #define DOEPCTL_EOFRNUM         USBHS_DOUTEPCTRL_EPDPID_EPEOFRM
 #define DOEPCTL_DPID            USBHS_DOUTEPCTRL_EPDPID_EPEOFRM
 #define DOEPCTL_USBACEPT        USBHS_DOUTEPCTRL_EPACT
-#define DOEPCTL_MPS_MASK        USBHS_DOUTEPCTRL_MPLEN
-#define DOEPCTL_MPS(n)          ((n) & USBHS_DOUTEPCTRL_MPLEN)
+/* Note: the vendor header defines USBHS_DOUTEPCTRL_MPLEN as 0x00000003 for
+   endpoints 1..8, which is wrong - the MPS field of DOUTEPCTRL occupies
+   bits 0..10 exactly like DINEPCTRL (11 bits, up to 2047 bytes). The vendor
+   SDK never masks it either (USB_EPActivate() writes
+   `ep->maxpacket << USBHS_DINEPCTRL_MPLEN_POS`). Using the 2 bit mask wrote
+   MPS=0 for every OUT endpoint, so the core silently dropped all OUT
+   packets: enumeration (EP0) worked, but raw HID reports never arrived. */
+#define DOEPCTL_MPS_MASK        ((uint32_t)0x000007FFU)
+#define DOEPCTL_MPS(n)          ((n) & 0x000007FFU)
 
 /* DOEPINT (DOUTEPINTSTS). */
 #define DOEPINT_B2BSTUP         USBHS_DOUTEPINTSTS_B2BSTUPRIF
