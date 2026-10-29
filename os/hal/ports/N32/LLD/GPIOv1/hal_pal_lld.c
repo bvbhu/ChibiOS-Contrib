@@ -168,24 +168,27 @@ void _pal_lld_setgroupmode(ioportid_t port,
     if ((mask & 1) != 0) {
       uint32_t altrmask, m1, m2, m4;
 
-      altrmask = altr << ((bit & 7) * 4);
+      /* N32 AFSEL layout (see SDK GPIO_InitPeripheral):
+         each AFSEL[n] register covers 4 pins, 8-bit slot each
+         (5 bits used):  RegNum = pos >> 2; BitPos = (pos & 3) * 8. */
+      altrmask = altr << ((bit & 3U) * 8U);
       m1 = 1 << bit;
       m2 = 3 << (bit * 2);
-      m4 = 15 << ((bit & 7) * 4);
+      m4 = (uint32_t)0x1FU << ((bit & 3U) * 8U);
       port->POTYPE  = (port->POTYPE & ~m1) | potype;
       port->DS      = (port->DS & ~m2) | ds;
       port->PUPD    = (port->PUPD & ~m2) | pupd;
       if ((mode & PAL_N32_MODE_MASK) == PAL_N32_MODE_ALTERNATE) {
         /* If going in alternate mode then the alternate number is set
            before switching mode in order to avoid glitches.*/
-        port->AFSEL[bit / 8] = (port->AFSEL[bit / 8] & ~m4) | altrmask;
+        port->AFSEL[bit >> 2] = (port->AFSEL[bit >> 2] & ~m4) | altrmask;
         port->PMODE = (port->PMODE & ~m2) | pmode;
       }
       else {
         /* If going into a non-alternate mode then the mode is switched
            before setting the alternate mode in order to avoid glitches.*/
         port->PMODE = (port->PMODE & ~m2) | pmode;
-        port->AFSEL[bit / 8] = (port->AFSEL[bit / 8] & ~m4) | altrmask;
+        port->AFSEL[bit >> 2] = (port->AFSEL[bit >> 2] & ~m4) | altrmask;
       }
     }
     mask >>= 1;

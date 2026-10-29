@@ -578,10 +578,19 @@ static void otg_isoc_out_failed_handler(USBDriver *usbp) {
  *
  * @notapi
  */
+/* Instrumentation for Vial debugging (defined non-static so the keyboard
+   layer can read them over the UART debug port). */
+volatile uint32_t n32dbg_isr_cnt;
+volatile uint32_t n32dbg_rx_cnt;
+volatile uint32_t n32dbg_epout_cnt;
+volatile uint32_t n32dbg_rst_cnt;
+
 static void usb_lld_serve_interrupt(USBDriver *usbp) {
   n32_otg_t *otgp = usbp->otg;
   uint32_t sts, src;
   unsigned retry = 64U;
+
+  n32dbg_isr_cnt++;
 
 irq_retry:
 
@@ -589,9 +598,15 @@ irq_retry:
   sts &= otgp->GINTMSK;
   otgp->GINTSTS = sts;
 
-  /* Reset interrupt handling.*/
-  if (sts & GINTSTS_USBRST) {
+  /* Reset interrupt handling.  Handle both USBRSTIF (STM32-style, bit12)
+     and RSTDIF (N32 "Reset detected", bit23).  On N32H48x the host bus
+     reset is reported through RSTDIF; if we only listen to USBRSTIF the
+     reset path never runs, DAINTMSK stays at 0x1001F (IN0..IN4 + OUT0)
+     and the OUT data endpoints never get their interrupt unmasked -
+     symptom: device enumerates but Vial hangs (no raw HID OUT delivery).*/
+  if ((sts & GINTSTS_USBRST) || (sts & GINTSTS_RSTDIF)) {
     /* Default reset action.*/
+    n32dbg_rst_cnt++;
     _usb_reset(usbp);
 
     /* Preventing execution of more handlers, the core has been reset.*/
@@ -676,6 +691,7 @@ irq_retry:
   /* IN/OUT endpoints event handling.*/
   src = otgp->DAINT;
   if (sts & GINTSTS_OEPTINT) {
+    n32dbg_epout_cnt++;
     if (src & (1 << 16))
       otg_epout_handler(usbp, 0);
     if (src & (1 << 17))
@@ -739,6 +755,7 @@ irq_retry:
   /* Performing the whole FIFO emptying in the STS, it is advised to keep
      this IRQ at a very low priority level.*/
   if ((sts & GINTSTS_RXFLVL) != 0U) {
+    n32dbg_rx_cnt++;
     otg_rxfifo_handler(usbp);
   }
 
@@ -898,12 +915,13 @@ void usb_lld_start(USBDriver *usbp) {
       otgp->GINTMSK  = GINTMSK_ENUMDONEMSK | GINTMSK_USBRSTMSK |
                        GINTMSK_USBSUSPMSK | GINTMSK_ERLYSUSPMSK |
                        GINTMSK_WKUPINTMSK | GINTMSK_INCOMISOINMSK |
-                       GINTMSK_INCOMPISOOUTMSK;
+                       GINTMSK_INCOMPISOOUTMSK | GINTMSK_RSTDIFMSK;
     else
       otgp->GINTMSK  = GINTMSK_ENUMDONEMSK | GINTMSK_USBRSTMSK |
                        GINTMSK_USBSUSPMSK | GINTMSK_ERLYSUSPMSK |
                        GINTMSK_WKUPINTMSK | GINTMSK_INCOMISOINMSK |
-                       GINTMSK_INCOMPISOOUTMSK | GINTMSK_SOFMSK;
+                       GINTMSK_INCOMPISOOUTMSK | GINTMSK_SOFMSK |
+                       GINTMSK_RSTDIFMSK;
 
     /* Clears all pending IRQs, if any. */
     otgp->GINTSTS  = 0xFFFFFFFF;

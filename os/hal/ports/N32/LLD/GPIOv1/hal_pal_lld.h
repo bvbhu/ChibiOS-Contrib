@@ -54,7 +54,8 @@
 #define PAL_N32_PUPDR_PULLUP          (1U << 5U)
 #define PAL_N32_PUPDR_PULLDOWN        (2U << 5U)
 
-#define PAL_N32_ALTERNATE_MASK        (15U << 7U)
+/* N32 AF numbers are 5-bit values (AF0..AF31), see SDK GPIO_AF enum. */
+#define PAL_N32_ALTERNATE_MASK        (31U << 7U)
 #define PAL_N32_ALTERNATE(n)          ((n) << 7U)
 
 /**
