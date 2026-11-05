@@ -361,6 +361,12 @@ typedef struct {
 #define DOEPMSK_SETUPMSK        USBHS_DOUTEPINTEN_STUPDNEIEN
 #define DOEPMSK_EPTDISMSK       USBHS_DOUTEPINTEN_EPDIEN
 #define DOEPMSK_XFERCMSK        USBHS_DOUTEPINTEN_TXCIEN
+/* Diagnostic-only masks: let the core report a NAKed OUT attempt (the host
+   polled us and the endpoint answered NAK) and a packet error, so a "host
+   sends, device never completes" situation becomes observable instead of
+   silent. */
+#define DOEPMSK_NAKMSK          USBHS_DOUTEPINTEN_NAKIEN
+#define DOEPMSK_OUTPKTERRMSK    USBHS_DOUTEPINTEN_OPERRIEN
 
 /* DAINT (DAEPINTSTS). */
 #define DAINT_OUTEPTINT_MASK    USBHS_DAEPINTSTS_OUTEPINT
@@ -440,15 +446,21 @@ typedef struct {
 #define DOEPCTL_EOFRNUM         USBHS_DOUTEPCTRL_EPDPID_EPEOFRM
 #define DOEPCTL_DPID            USBHS_DOUTEPCTRL_EPDPID_EPEOFRM
 #define DOEPCTL_USBACEPT        USBHS_DOUTEPCTRL_EPACT
-/* Note: the vendor header defines USBHS_DOUTEPCTRL_MPLEN as 0x00000003 for
-   endpoints 1..8, which is wrong - the MPS field of DOUTEPCTRL occupies
-   bits 0..10 exactly like DINEPCTRL (11 bits, up to 2047 bytes). The vendor
-   SDK never masks it either (USB_EPActivate() writes
-   `ep->maxpacket << USBHS_DINEPCTRL_MPLEN_POS`). Using the 2 bit mask wrote
-   MPS=0 for every OUT endpoint, so the core silently dropped all OUT
-   packets: enumeration (EP0) worked, but raw HID reports never arrived. */
-#define DOEPCTL_MPS_MASK        ((uint32_t)0x000007FFU)
-#define DOEPCTL_MPS(n)          ((n) & 0x000007FFU)
+/* MPLEN on OUT endpoints is a 2-bit CODE, not a byte count.
+   Reference manual, USBHS_DOUTEPxCTRL (x=[9..15]), address 0x0B00 + x*0x20:
+     bit15    EPACT
+     bit14:2  Reserved
+     bit1:0   MPLEN[1:0]  2'b00 = 64 bytes, 2'b01 = 32 bytes,
+                          2'b10 = 16 bytes, 2'b11 = 8 bytes
+   The reset value 0x00008000 (MPLEN = 0b00 = 64) is exactly EP0's required
+   maximum packet size, which confirms the 2-bit encoding - an 11-bit field
+   would read MPS = 0 at reset and control transfers could never work.
+   Writing the raw byte count (e.g. 32) here masked to 0b00 = 64 bytes. */
+#define DOEPCTL_MPS_CODE(bytes)                                       \
+  (((bytes) >= 64U) ? 0U : ((bytes) >= 32U) ? 1U                      \
+                        : ((bytes) >= 16U) ? 2U : 3U)
+#define DOEPCTL_MPS_MASK        ((uint32_t)0x00000003U)
+#define DOEPCTL_MPS(n)          (DOEPCTL_MPS_CODE(n))
 
 /* DOEPINT (DOUTEPINTSTS). */
 #define DOEPINT_B2BSTUP         USBHS_DOUTEPINTSTS_B2BSTUPRIF
@@ -456,6 +468,8 @@ typedef struct {
 #define DOEPINT_SETUP           USBHS_DOUTEPINTSTS_STUPPDNEIF
 #define DOEPINT_EPTDISD         USBHS_DOUTEPINTSTS_EPDISIF
 #define DOEPINT_XFERC           USBHS_DOUTEPINTSTS_TXCIF
+#define DOEPINT_NAKIF           USBHS_DOUTEPINTSTS_NAKIF
+#define DOEPINT_OUTPKTERR       USBHS_DOUTEPINTSTS_OUTPCKERRIF
 
 /* DOEPTSIZ (DOUTEPTXSIZ). */
 #define DOEPTSIZ_RXDPID_MASK    USBHS_DOUTEPTXSIZ_STUPPCNT_RXDPID

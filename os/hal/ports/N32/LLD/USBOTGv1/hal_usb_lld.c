@@ -339,6 +339,141 @@ static void otg_fifo_read_to_buffer(volatile uint32_t *fifop,
   }
 }
 
+/* Instrumentation for Vial debugging (defined non-static so the keyboard
+   layer can read them over the UART debug port). */
+volatile uint32_t n32dbg_rx_ring[16];
+volatile uint32_t n32dbg_rx_ring_i;
+volatile uint32_t n32dbg_poll_cnt;
+volatile uint32_t n32dbg_poll_ep;
+volatile uint32_t n32dbg_poll_val;
+/* Which endpoint numbers were ever initialized with an OUT state, and which
+   were ever armed for reception (bit N = endpoint N). */
+volatile uint32_t n32dbg_initep_out_mask;
+volatile uint32_t n32dbg_startout_mask;
+/* Cumulative RX status queue taxonomy over ALL pops, plus captured SETUP
+   request bytes and the OR of every masked GINTSTS in the ISR. */
+volatile uint32_t n32dbg_pop_gen;
+volatile uint32_t n32dbg_pop_pk[8];   /* index = PKTSTS value 0..7 */
+volatile uint32_t n32dbg_pop_ep_or;   /* OR of (1 << EPTNUM) seen */
+volatile uint32_t n32dbg_setup_cnt;
+volatile uint32_t n32dbg_setup_buf[2];/* 8 bytes of last SETUP */
+volatile uint32_t n32dbg_isr_sts_or;  /* OR of masked GINTSTS over all ISR runs */
+/* IN-direction counters: how often the stack arms an IN transfer, how often
+   EP0 IN completes (XFERC) and how often the TX-FIFO-empty handler runs. */
+volatile uint32_t n32dbg_startin_cnt;
+volatile uint32_t n32dbg_startin_ep;
+volatile uint32_t n32dbg_startin_sz;
+volatile uint32_t n32dbg_epin_xfrc_cnt;
+volatile uint32_t n32dbg_epin_xfrc_ep;
+volatile uint32_t n32dbg_epin_txfe_cnt;
+volatile uint32_t n32dbg_epin_txfe_ep;
+/* IN-endpoint polling path (DAINT does not report data endpoints on this
+   part, so DIEPINTn is walked from the ISR - see usb_lld_serve_interrupt). */
+volatile uint32_t n32dbg_epin_poll_cnt;
+volatile uint32_t n32dbg_epin_poll_ep;
+volatile uint32_t n32dbg_epin_poll_val;
+/* Ring of the last 8 captured SETUP requests (word 0 and word 1 use the same
+   byte interleave as n32dbg_setup_buf, so the decoder is identical).
+   Reading the whole ring after the freeze tells us which requests the host
+   was repeating when the bus went silent. */
+volatile uint32_t n32dbg_setup_ring[8][2];
+volatile uint32_t n32dbg_setup_ring_i;
+/* Enumeration milestones. */
+volatile uint32_t n32dbg_setaddr_cnt;   /* usb_lld_set_address() calls */
+volatile uint32_t n32dbg_cfg_seen;      /* SET_CONFIGURATION requests seen */
+volatile uint32_t n32dbg_stall_in_cnt;
+volatile uint32_t n32dbg_stall_in_ep;
+volatile uint32_t n32dbg_stall_out_cnt;
+volatile uint32_t n32dbg_stall_out_ep;
+/* Snapshot of the peripheral state at probe time (filled by
+   n32dbg_usb_probe(), called from the keyboard debug dump). */
+/* OUT endpoint re-arm bookkeeping.  On a DWC-style core writing DOEPTSIZ while
+   EPENA is still set is ignored, so usb_lld_start_out() must disable the
+   endpoint first.  These counters prove whether that actually happened. */
+volatile uint32_t n32dbg_out_epena_busy;  /* start_out found EPENA already 1 */
+volatile uint32_t n32dbg_out_epdis_wait;  /* EPDIS polls spent waiting       */
+volatile uint32_t n32dbg_out_epdis_tmo;   /* EPDIS never completed           */
+volatile uint32_t n32dbg_out_arm_ep;      /* last endpoint armed             */
+volatile uint32_t n32dbg_out_arm_ctl;     /* DOEPCTL value written by arm    */
+volatile uint32_t n32dbg_out_arm_siz;     /* DOEPTSIZ value written by arm   */
+
+/* Per-endpoint OUT interrupt raw capture: DOEPINT of EP1..EP8 sampled in the
+   ISR, so a NAK/error bit shows up even when nothing else fires. */
+volatile uint32_t n32dbg_doepint_snapshot[9];
+volatile uint32_t n32dbg_doepint_or;      /* OR of every snapshot taken      */
+
+/* NAK / packet-error capture on the OUT data endpoints: proves whether the
+   host really polled us (NAKIF) or nothing ever arrived. */
+volatile uint32_t n32dbg_out_nak_cnt;
+volatile uint32_t n32dbg_out_nak_ep;
+volatile uint32_t n32dbg_out_err_cnt;
+volatile uint32_t n32dbg_out_err_ep;
+volatile uint32_t n32dbg_out_err_val;
+
+/* Periodic re-arm experiment on the RAW OUT endpoint (EP3), driven from the
+   keyboard debug dump: counts rewrites of the transfer descriptor and records
+   the resulting control register value. */
+volatile uint32_t n32dbg_rearm_cnt;
+volatile uint32_t n32dbg_rearm_ctl;
+volatile uint32_t n32dbg_ep3_mode;
+
+volatile uint32_t n32dbg_dsts;
+volatile uint32_t n32dbg_usb_state;
+volatile uint32_t n32dbg_primask;
+volatile uint32_t n32dbg_usb_irq_en;
+volatile uint32_t n32dbg_usb_cfg_val;    /* usbp->configuration */
+volatile uint32_t n32dbg_usb_addr_val;   /* usbp->address */
+volatile uint32_t n32dbg_usb_ep0state;   /* EP0 state machine position */
+
+/**
+ * @brief   Snapshot the USB interrupt / peripheral liveness state.
+ *
+ * @details Reads the values that distinguish "the bus went silent" from
+ *          "the device stopped taking interrupts": DSTS tells whether the
+ *          port is still active (SOFs) or suspended; PRIMASK and the NVIC
+ *          enable bit tell whether the USB ISR can still fire at all.
+ *
+ * @notapi
+ */
+void n32dbg_usb_probe(void) {
+  unsigned i;
+
+  n32dbg_primask = __get_PRIMASK();
+  /* NOTE: do NOT read NVIC->ISER[USB_HS_IRQn >> 5].
+     USB_HS_IRQn is 116 on this part, so the index is 3, but the Cortex-M4
+     NVIC implements only ISER[0..2] (IRQs 0..95).  Reading ISER[3] faults
+     with IBUSERR at 0xE000EDF8 - that hard fault killed the firmware and
+     made the device disappear from the bus entirely.  The NVIC enable state
+     is therefore not sampled; PRIMASK plus DSTS are enough to tell whether
+     the interrupt path is alive. */
+  n32dbg_usb_irq_en = 0U;
+
+  /* The debug dump runs from the matrix-scan hook, which can fire BEFORE
+     usb_lld_init() has assigned USBD1.otg.  Dereferencing a NULL driver
+     pointer there is a hard fault (and it took the whole firmware down:
+     enumeration finished, then no UART output at all).  Fall back to the
+     fixed peripheral base until the driver is initialised. */
+  n32_otg_t *otgp = (USBD1.otg != NULL) ? USBD1.otg : N32_USBHS_BASE;
+
+  n32dbg_dsts      = otgp->DSTS;
+  n32dbg_usb_state = (uint32_t)USBD1.state;
+  n32dbg_usb_cfg_val  = (uint32_t)USBD1.configuration;
+  n32dbg_usb_addr_val = (uint32_t)USBD1.address;
+  n32dbg_usb_ep0state = (uint32_t)USBD1.ep0state;
+
+  /* Sample every OUT endpoint's status register from thread context.  This
+     keeps working even when the USB interrupt has stopped firing, so it is
+     the only reliable way to see whether the core ever observed the host
+     touching a data endpoint (XFERC = 0x1, NAKIF = 0x2000, error bits). */
+  if (USBD1.otgparams != NULL) {
+    for (i = 1U; i <= (unsigned)USBD1.otgparams->num_endpoints && i < 9U; i++) {
+      uint32_t v = otgp->oe[i].DOEPINT;
+      n32dbg_doepint_snapshot[i] = v;
+      n32dbg_doepint_or |= v;
+    }
+  }
+}
+
 /**
  * @brief   Incoming packets handler.
  *
@@ -353,6 +488,23 @@ static void otg_rxfifo_handler(USBDriver *usbp) {
   /* Popping the event word out of the RX FIFO.*/
   sts = usbp->otg->GRXSTSP;
 
+  /* Cumulative taxonomy of every popped status word (not just the ring):
+     total pops, per-PKTSTS histogram, OR of endpoint numbers, and the last
+     SETUP request bytes.  Together with the ring these prove whether the
+     core is really pushing events or the pop pointer is stuck on a stale
+     word (symptom: endless identical EP0 OUT_COMP entries).*/
+  n32dbg_pop_gen++;
+ {
+  uint32_t pk = (sts & GRXSTSP_PKTSTS_MASK) >> USBHS_GRXSTS_PKTSTS_POS;
+  n32dbg_pop_pk[pk & 7U]++;
+  n32dbg_pop_ep_or |= (1U << (sts & GRXSTSP_EPTNUM_MASK));
+ }
+
+  /* Debug capture of the raw RX status queue entries (decoded by the
+     keyboard layer over the UART debug port).*/
+  n32dbg_rx_ring[n32dbg_rx_ring_i] = sts;
+  n32dbg_rx_ring_i = (n32dbg_rx_ring_i + 1U) & 15U;
+
   /* Event details.*/
   n  = (size_t)((sts & GRXSTSP_BCNT_MASK) >> GRXSTSP_BCNT_OFF);
   ep = (sts & GRXSTSP_EPTNUM_MASK) >> GRXSTSP_EPTNUM_OFF;
@@ -361,6 +513,28 @@ static void otg_rxfifo_handler(USBDriver *usbp) {
   case GRXSTSP_SETUP_DATA:
     otg_fifo_read_to_buffer(usbp->otg->FIFO[0], usbp->epc[ep]->setup_buf,
                             n, 8);
+    n32dbg_setup_cnt++;
+    n32dbg_setup_buf[0] = ((uint32_t)usbp->epc[ep]->setup_buf[1] << 24U) |
+                          ((uint32_t)usbp->epc[ep]->setup_buf[3] << 16U) |
+                          ((uint32_t)usbp->epc[ep]->setup_buf[5] << 8U)  |
+                           (uint32_t)usbp->epc[ep]->setup_buf[7];
+    n32dbg_setup_buf[1] = ((uint32_t)usbp->epc[ep]->setup_buf[0] << 24U) |
+                          ((uint32_t)usbp->epc[ep]->setup_buf[2] << 16U) |
+                          ((uint32_t)usbp->epc[ep]->setup_buf[4] << 8U)  |
+                           (uint32_t)usbp->epc[ep]->setup_buf[6];
+    /* Append to the 8-deep SETUP ring so the last requests of a dead
+       enumeration can be read back. */
+    {
+      uint32_t ri = n32dbg_setup_ring_i & 7U;
+      n32dbg_setup_ring[ri][0] = n32dbg_setup_buf[0];
+      n32dbg_setup_ring[ri][1] = n32dbg_setup_buf[1];
+      n32dbg_setup_ring_i = (ri + 1U) & 7U;
+    }
+    /* Count SET_CONFIGURATION (standard, host-to-device, device recipient). */
+    if ((usbp->epc[ep]->setup_buf[0] == 0x00U) &&
+        (usbp->epc[ep]->setup_buf[1] == 0x09U)) {
+      n32dbg_cfg_seen++;
+    }
     break;
   case GRXSTSP_SETUP_COMP:
     break;
@@ -449,6 +623,8 @@ static void otg_epin_handler(USBDriver *usbp, usbep_t ep) {
     /* Timeouts not handled yet, not sure how to handle.*/
   }
   if ((epint & DIEPINT_XFERC) && (otgp->DIEPMSK & DIEPMSK_XFERCMSK)) {
+    n32dbg_epin_xfrc_cnt++;
+    n32dbg_epin_xfrc_ep = ep;
     /* Transmit transfer complete.*/
     USBInEndpointState *isp = usbp->epc[ep]->in_state;
 
@@ -469,6 +645,8 @@ static void otg_epin_handler(USBDriver *usbp, usbep_t ep) {
   }
   if ((epint & DIEPINT_TXFEMP) &&
       (otgp->DIEPEMPMSK & DIEPEMPMSK_INEPTXFEMSK(ep))) {
+    n32dbg_epin_txfe_cnt++;
+    n32dbg_epin_txfe_ep = ep;
     /* TX FIFO empty or emptying.*/
     otg_txfifo_handler(usbp, ep);
   }
@@ -484,7 +662,30 @@ static void otg_epin_handler(USBDriver *usbp, usbep_t ep) {
  */
 static void otg_epout_handler(USBDriver *usbp, usbep_t ep) {
   n32_otg_t *otgp = usbp->otg;
-  uint32_t epint = otgp->oe[ep].DOEPINT;
+  uint32_t epint;
+
+  /* Defensive guard for the polling path below: skip endpoint numbers that
+     have no OUT state registered.*/
+  if ((ep > usbp->otgparams->num_endpoints) || (usbp->epc[ep] == NULL) ||
+      (usbp->epc[ep]->out_state == NULL)) {
+    return;
+  }
+
+  epint = otgp->oe[ep].DOEPINT;
+
+  /* Diagnostic: record whether the core saw the host poll this endpoint.
+     NAKIF means "a host OUT arrived and we answered NAK" - which proves the
+     host really is sending and the endpoint's transfer descriptor is wrong.
+     Packet/error bits cover the other failure modes. */
+  if (epint & DOEPINT_NAKIF) {
+    n32dbg_out_nak_cnt++;
+    n32dbg_out_nak_ep = ep;
+  }
+  if (epint & (DOEPINT_OUTPKTERR | DOEPINT_B2BSTUP)) {
+    n32dbg_out_err_cnt++;
+    n32dbg_out_err_ep  = ep;
+    n32dbg_out_err_val = epint;
+  }
 
   /* Resets all EP IRQ sources.*/
   otgp->oe[ep].DOEPINT = epint;
@@ -519,6 +720,55 @@ static void otg_epout_handler(USBDriver *usbp, usbep_t ep) {
 
     /* End on OUT transfer.*/
     _usb_isr_invoke_out_cb(usbp, ep);
+  }
+}
+
+/**
+ * @brief   Poll the per-endpoint OUT interrupt status registers.
+ *
+ * @details N32H48x quirk: DAEPINTEN (0x81C) and DEEPINTEN (0x83C) only
+ *          implement the OUT endpoint-0 enable bit (bit16); the OUT data
+ *          endpoint enable bits (bit17..) are not writable, so DAEPINTSTS
+ *          (read through @p DAINT) never reports a completed OUT transfer
+ *          on EP1..EPn and GINTSTS OEPTINT never dispatches them.
+ *          The per-endpoint DOUTEPINTSTS registers are still set by the
+ *          core, so the data endpoints are serviced by walking those
+ *          registers directly.  otg_epout_handler() clears them by
+ *          write-1-to-clear, so calling this repeatedly is harmless.
+ *
+ * @param[in] usbp      pointer to the @p USBDriver object
+ *
+ * @notapi
+ */
+static void otg_epout_poll(USBDriver *usbp) {
+  n32_otg_t   *otgp = usbp->otg;
+  usbep_t     ep;
+
+  for (ep = 1; ep <= usbp->otgparams->num_endpoints; ep++) {
+    uint32_t epint = otgp->oe[ep].DOEPINT;
+
+    if (epint == 0U)
+      continue;
+
+    /* Record a NAK before any other filtering: a NAK here means the host
+       really did send an OUT to this endpoint and the core answered NAK,
+       which is the decisive difference between "host never sent" and
+       "host sent but the transfer descriptor was wrong". */
+    if ((epint & DOEPINT_NAKIF) != 0U) {
+      n32dbg_out_nak_cnt++;
+      n32dbg_out_nak_ep = ep;
+    }
+
+    /* Only endpoints the core still has enabled can legitimately report a
+       transfer-complete condition.*/
+    if ((otgp->oe[ep].DOEPCTL & DOEPCTL_EPTENA) == 0U) {
+      otgp->oe[ep].DOEPINT = 0xFFFFFFFFU;
+      continue;
+    }
+    n32dbg_poll_cnt++;
+    n32dbg_poll_ep  = ep;
+    n32dbg_poll_val = epint;
+    otg_epout_handler(usbp, ep);
   }
 }
 
@@ -584,6 +834,15 @@ volatile uint32_t n32dbg_isr_cnt;
 volatile uint32_t n32dbg_rx_cnt;
 volatile uint32_t n32dbg_epout_cnt;
 volatile uint32_t n32dbg_rst_cnt;
+volatile uint32_t n32dbg_initep_cnt;
+volatile uint32_t n32dbg_initep_ep;
+volatile uint32_t n32dbg_initep_outstate;
+volatile uint32_t n32dbg_initep_out_enabled;
+volatile uint32_t n32dbg_startout_cnt;
+volatile uint32_t n32dbg_startout_ep;
+volatile uint32_t n32dbg_startout_msk_before;
+volatile uint32_t n32dbg_startout_msk_after;
+volatile uint32_t n32dbg_usbreset_cnt;
 
 static void usb_lld_serve_interrupt(USBDriver *usbp) {
   n32_otg_t *otgp = usbp->otg;
@@ -596,7 +855,15 @@ irq_retry:
 
   sts  = otgp->GINTSTS;
   sts &= otgp->GINTMSK;
+  /* Clear the masked-in bits we are about to service.
+     NOTE: do NOT clear the whole GINTSTS here.  RXFLVL (bit4) is
+     cleared as a side effect of popping the RX FIFO, and writing 1 to it
+     up front destroys the very event the RX handler below needs; other
+     bits (EOPF, PTXFE) are harmless stale status and are left alone.
+     The earlier "ISR storm" was caused by SOF being masked off, which is
+     fixed above by keeping SOF enabled. */
   otgp->GINTSTS = sts;
+  n32dbg_isr_sts_or |= sts;
 
   /* Reset interrupt handling.  Handle both USBRSTIF (STM32-style, bit12)
      and RSTDIF (N32 "Reset detected", bit23).  On N32H48x the host bus
@@ -655,8 +922,12 @@ irq_retry:
 
   /* SOF interrupt handling.*/
   if (sts & GINTSTS_SOF) {
-    /* SOF interrupt was used to detect resume of the USB bus after issuing a
-       remote wake up of the host, therefore we disable it again.*/
+    /* Disable the SOF interrupt once it has served its purpose.
+       Measured on this board: keeping SOF enabled as a "heartbeat" makes the
+       ISR run at ~1 kHz and starves the main loop - the device stops
+       enumerating altogether.  The endpoint polling in this ISR therefore
+       must not depend on SOF; it is driven by the endpoint and RX interrupts
+       that the core actually raises. */
     if (usbp->config->sof_cb == NULL) {
       otgp->GINTMSK &= ~GINTMSK_SOFMSK;
     }
@@ -720,6 +991,38 @@ irq_retry:
     if (src & (1 << 24))
       otg_epout_handler(usbp, 8);
 #endif
+    /* OUT endpoints 9..15 are reported in DAEPINT (USBHS_DAEPINTSTS) bits
+       25..31 - the only OUT data endpoints this device actually implements
+       besides EP0.  Reference manual, USBHS_DAEPINTEN: OUTEPIEN[15:9] occupy
+       bits 31:25, while bits 24:17 are reserved (there is no OUT EP1..EP8). */
+#if USB_MAX_ENDPOINTS >= 9
+    if (src & (1 << 25))
+      otg_epout_handler(usbp, 9);
+#endif
+#if USB_MAX_ENDPOINTS >= 10
+    if (src & (1 << 26))
+      otg_epout_handler(usbp, 10);
+#endif
+#if USB_MAX_ENDPOINTS >= 11
+    if (src & (1 << 27))
+      otg_epout_handler(usbp, 11);
+#endif
+#if USB_MAX_ENDPOINTS >= 12
+    if (src & (1 << 28))
+      otg_epout_handler(usbp, 12);
+#endif
+#if USB_MAX_ENDPOINTS >= 13
+    if (src & (1 << 29))
+      otg_epout_handler(usbp, 13);
+#endif
+#if USB_MAX_ENDPOINTS >= 14
+    if (src & (1 << 30))
+      otg_epout_handler(usbp, 14);
+#endif
+#if USB_MAX_ENDPOINTS >= 15
+    if (src & (1U << 31))
+      otg_epout_handler(usbp, 15);
+#endif
   }
   if (sts & GINTSTS_IEPTINT) {
     if (src & (1 << 0))
@@ -757,6 +1060,44 @@ irq_retry:
   if ((sts & GINTSTS_RXFLVL) != 0U) {
     n32dbg_rx_cnt++;
     otg_rxfifo_handler(usbp);
+  }
+
+  /* N32H48x: the OUT data endpoints can never be unmasked through
+     DAEPINTEN (only the EP0 bit is implemented), so the DAINT bitmap above
+     only ever dispatches EP0.  Service EP1..EPn from their own interrupt
+     status registers on every pass of this handler.*/
+  otg_epout_poll(usbp);
+
+  /* Same limitation on the IN side: completed IN transfers (TXFE/NAKIF on
+     DIEPINTn) are not reflected in DAINT either, so a reply queued with
+     send_report() would sit in the endpoint forever while the host waits.
+     Walk DIEPINTn directly, mirroring otg_epout_poll().  EP0 is driven by
+     the normal control path, so start at EP1.  Skip endpoints that have no
+     driver config to keep this cheap and safe. */
+  {
+    usbep_t ep;
+    for (ep = 1; ep <= usbp->otgparams->num_endpoints; ep++) {
+      uint32_t epint;
+
+      if ((usbp->epc[ep] == NULL) || (usbp->epc[ep]->in_state == NULL))
+        continue;
+
+      epint = otgp->ie[ep].DIEPINT;
+      if (epint == 0U)
+        continue;
+
+      /* Ignore endpoints the core has disabled (unused). */
+      if ((otgp->ie[ep].DIEPCTL & DIEPCTL_EPTENA) == 0U &&
+          (otgp->ie[ep].DIEPCTL & DIEPCTL_USBACEPT) == 0U) {
+        otgp->ie[ep].DIEPINT = 0xFFFFFFFFU;
+        continue;
+      }
+
+      n32dbg_epin_poll_cnt++;
+      n32dbg_epin_poll_ep  = ep;
+      n32dbg_epin_poll_val = epint;
+      otg_epin_handler(usbp, ep);
+    }
   }
 
   if ((sts & IRQ_RETRY_MASK) && (--retry > 0U))
@@ -911,17 +1252,11 @@ void usb_lld_start(USBDriver *usbp) {
     otgp->DIEPMSK  = 0;
     otgp->DOEPMSK  = 0;
     otgp->DAINTMSK = 0;
-    if (usbp->config->sof_cb == NULL)
-      otgp->GINTMSK  = GINTMSK_ENUMDONEMSK | GINTMSK_USBRSTMSK |
-                       GINTMSK_USBSUSPMSK | GINTMSK_ERLYSUSPMSK |
-                       GINTMSK_WKUPINTMSK | GINTMSK_INCOMISOINMSK |
-                       GINTMSK_INCOMPISOOUTMSK | GINTMSK_RSTDIFMSK;
-    else
-      otgp->GINTMSK  = GINTMSK_ENUMDONEMSK | GINTMSK_USBRSTMSK |
-                       GINTMSK_USBSUSPMSK | GINTMSK_ERLYSUSPMSK |
-                       GINTMSK_WKUPINTMSK | GINTMSK_INCOMISOINMSK |
-                       GINTMSK_INCOMPISOOUTMSK | GINTMSK_SOFMSK |
-                       GINTMSK_RSTDIFMSK;
+    otgp->GINTMSK  = GINTMSK_ENUMDONEMSK | GINTMSK_USBRSTMSK |
+                     GINTMSK_USBSUSPMSK | GINTMSK_ERLYSUSPMSK |
+                     GINTMSK_WKUPINTMSK | GINTMSK_INCOMISOINMSK |
+                     GINTMSK_INCOMPISOOUTMSK |
+                     GINTMSK_RSTDIFMSK;
 
     /* Clears all pending IRQs, if any. */
     otgp->GINTSTS  = 0xFFFFFFFF;
@@ -1003,6 +1338,12 @@ void usb_lld_reset(USBDriver *usbp) {
   otgp->GINTMSK  |= GINTMSK_RXFLVLMSK  | GINTMSK_OEPTINTMSK |
                     GINTMSK_IEPTINTMSK;
   otgp->DIEPMSK   = DIEPMSK_TIMEOUTMSK | DIEPMSK_XFERCMSK;
+  /* NOTE: do NOT enable NAK/packet-error interrupts here.  NAKIF is asserted
+     continuously while an armed OUT endpoint has no free packet, and for EP0
+     during every control transfer; enabling it turns the USB ISR into an
+     interrupt storm that starves the main loop (the UART debug dump and
+     matrix scan stop running entirely).  NAK is instead sampled
+     non-intrusively from thread context in n32dbg_usb_probe(). */
   otgp->DOEPMSK   = DOEPMSK_SETUPMSK   | DOEPMSK_XFERCMSK;
 
   /* EP0 initialization, it is a special case.*/
@@ -1028,12 +1369,23 @@ void usb_lld_reset(USBDriver *usbp) {
      not enabled in hardware yet (they have just been put in NAK mode above),
      so no spurious interrupts are generated. */
   for (i = 1U; i <= usbp->otgparams->num_endpoints; i++) {
-    if (usbp->epc[i] == NULL)
-      continue;
-    if (usbp->epc[i]->out_state != NULL)
-      otgp->DAINTMSK |= DAINTMSK_OUTEPTMSK(i);
-    if (usbp->epc[i]->in_state != NULL)
+    /* Arm the data-endpoint interrupt bits.  The endpoint table is populated
+       by the HID stack only after SET_CONFIGURATION; a reset can (re)occur
+       before that, so relying on the registered in_state/out_state pointers
+       here races with the (re-)enumeration.  Unused endpoints sit in NAK mode
+       and cannot raise spurious interrupts, so arming every *implemented* bit
+       on every reset is safe.
+
+       Which bits exist is fixed by the hardware (reference manual,
+       USBHS_DAEPINTEN): INEPIEN[8:0] for IN endpoints 0..8, OUTEPIEN0 for
+       OUT0, and OUTEPIEN[15:9] for OUT 9..15.  Bits 24:17 (OUT EP1..EP8) and
+       bits 15:9 are reserved, so they must never be set. */
+    if (i <= 8U) {
       otgp->DAINTMSK |= DAINTMSK_INEPTMSK(i);
+    }
+    if ((i == 0U) || (i >= 9U)) {
+      otgp->DAINTMSK |= DAINTMSK_OUTEPTMSK(i);
+    }
   }
 }
 
@@ -1047,6 +1399,7 @@ void usb_lld_reset(USBDriver *usbp) {
 void usb_lld_set_address(USBDriver *usbp) {
   n32_otg_t *otgp = usbp->otg;
 
+  n32dbg_setaddr_cnt++;
   otgp->DCFG = (otgp->DCFG & ~DCFG_DEVADDR_MASK) | DCFG_DEVADDR(usbp->address);
 }
 
@@ -1081,14 +1434,25 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
   }
 
   /* OUT endpoint activation or deactivation.*/
+  n32dbg_initep_cnt++;
+  n32dbg_initep_ep = ep;
+  n32dbg_initep_outstate = (uint32_t)usbp->epc[ep]->out_state;
   otgp->oe[ep].DOEPTSIZ = 0;
   if (usbp->epc[ep]->out_state != NULL) {
+    n32dbg_initep_out_enabled++;
+    n32dbg_initep_out_mask |= (1U << ep);
     otgp->oe[ep].DOEPCTL = ctl | DOEPCTL_MPS(usbp->epc[ep]->out_maxsize);
     otgp->DAINTMSK |= DAINTMSK_OUTEPTMSK(ep);
   }
   else {
     otgp->oe[ep].DOEPCTL &= ~DOEPCTL_USBACEPT;
-    otgp->DAINTMSK &= ~DAINTMSK_OUTEPTMSK(ep);
+    /* Do NOT clear the DAINTMSK OUT bit here.  The bus-reset re-arm loop
+       arms every OUT/IN data-endpoint interrupt bit unconditionally; if we
+       cleared it for an endpoint that the host has not configured yet, a
+       reset that happens before SET_CONFIGURATION would leave the OUT
+       interrupt masked for good (symptom: RAW HID OUT reports never
+       delivered, Vial hangs).  end-points stay in NAK, so no spurious
+       interrupts can occur. */
   }
 
   /* IN endpoint activation or deactivation.*/
@@ -1111,7 +1475,7 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     otgp->DIEPTXF[ep - 1] = 0x02000400; /* Reset value.*/
     otg_txfifo_flush(usbp, ep);
     otgp->ie[ep].DIEPCTL &= ~DIEPCTL_USBACEPT;
-    otgp->DAINTMSK &= ~DAINTMSK_INEPTMSK(ep);
+    /* See the OUT branch above: do not clear the DAINTMSK IN bit either. */
   }
 }
 
@@ -1209,7 +1573,8 @@ void usb_lld_read_setup(USBDriver *usbp, usbep_t ep, uint8_t *buf) {
  * @notapi
  */
 void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
-  uint32_t pcnt, rxsize;
+  uint32_t pcnt, rxsize, ctl;
+  unsigned guard;
   USBOutEndpointState *osp = usbp->epc[ep]->out_state;
 
   /* Transfer initialization.*/
@@ -1224,24 +1589,58 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
      endpoint, adjusted to the Word boundary".*/
   pcnt   = (osp->rxsize + usbp->epc[ep]->out_maxsize - 1U) /
            usbp->epc[ep]->out_maxsize;
-  rxsize = (pcnt * usbp->epc[ep]->out_maxsize + 3U) & 0xFFFFFFFCU;
-
-  /* Setting up transaction parameters in DOEPTSIZ.
-     NOTE (N32-specific): on this part the STUPPCNT/RXDPID field
-     (DOUTEPTXSIZ bits 29:30) is significant for EVERY OUT endpoint, not only
-     EP0.  Writing SETUPCNT(3) on a non-EP0 endpoint programs RXDPID = 3
-     (expect SETUP packets) so the endpoint never accepts the DATA0/DATA1
-     OUT packets sent by the host -- raw HID reports never arrive and Vial
-     hangs.  Only EP0 needs SETUPCNT(3); other endpoints must keep
-     RXDPID = 0 (DATA0), which is what the vendor SDK does. */
-  if (ep == 0) {
-    usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_SETUPCNT(3) | DOEPTSIZ_PKTCNT(pcnt) |
-                                 DOEPTSIZ_XFERSIZE(rxsize);
+  /* N32-specific: unlike STM32/AT32 OTG cores, the N32 OTG core does NOT
+     attach any special meaning to PKTCNT == 0 on EP0 (STM32 treats it as
+     "wait for SETUP / accept ZLP status OUT").  If the transfer size is
+     zero (EP0 status stage -- zero length OUT packet, which every control
+     transfer ends with) the core never finishes the transaction and the
+     host keeps re-sending the same request.  The vendor SDK programs
+     TLEN = maxpacket, PKTCNT = 1 for zero-length OUT, so mirror that:
+     force pcnt >= 1 and a word-aligned size of at least one packet. */
+  if (pcnt == 0U) {
+    pcnt   = 1U;
+    rxsize = usbp->epc[ep]->out_maxsize;
   }
   else {
-    usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_PKTCNT(pcnt) |
-                                 DOEPTSIZ_XFERSIZE(rxsize);
+    rxsize = (pcnt * usbp->epc[ep]->out_maxsize + 3U) & 0xFFFFFFFCU;
   }
+
+  /* DWC rule: DOEPTSIZ may only be written while the endpoint is disabled.
+     If EPENA is still set (the endpoint was left armed by an earlier
+     transfer that never completed -- e.g. EP3 armed at SET_CONFIGURATION
+     and the host never sent a report), writing the size register is silently
+     ignored by the core and the endpoint keeps waiting on the OLD
+     descriptor.  Symptom: the host issues the OUT packet, the core never
+     accepts it, WriteFile() blocks forever, and neither DOEPINT nor the RX
+     status queue ever shows the packet.  Disable first, wait for the
+     completion of the disable (EPDISD), then re-program. */
+  ctl = usbp->otg->oe[ep].DOEPCTL;
+  if ((ctl & DOEPCTL_EPTENA) != 0U) {
+    n32dbg_out_epena_busy++;
+    usbp->otg->oe[ep].DOEPCTL = (ctl | DOEPCTL_EPTDIS) & ~DOEPCTL_EPTENA;
+    for (guard = 0; guard < 2000U; guard++) {
+      if ((usbp->otg->oe[ep].DOEPCTL & DOEPCTL_EPTENA) == 0U)
+        break;
+      n32dbg_out_epdis_wait++;
+    }
+    if (guard >= 2000U)
+      n32dbg_out_epdis_tmo++;
+  }
+
+  /* Setting up transaction parameters in DOEPTSIZ.
+     The SETUPCNT field must be programmed for EVERY OUT endpoint, not only
+     EP0.  Both reference DWC implementations do exactly this:
+       ChibiOS STM32 OTGv1  DOEPTSIZ_STUPCNT(3) | PKTCNT | XFRSIZ
+       ChibiOS-Contrib AT32 DOEPTSIZ_SETUPCNT(3) | PKTCNT | XFERSIZE
+     Programming 0 here for a data endpoint left it permanently unable to
+     accept a host OUT packet: PKTCNT never decremented, DOEPINT stayed 0 and
+     no RX status word was ever produced, even though the OUT token did reach
+     the core (a STALLed endpoint rejected the host write immediately).  The
+     earlier "only EP0 needs SETUPCNT" note was wrong and caused the raw HID
+     OUT endpoint to never receive anything. */
+  usbp->otg->oe[ep].DOEPTSIZ = DOEPTSIZ_SETUPCNT(3) |
+                               DOEPTSIZ_PKTCNT(pcnt) |
+                               DOEPTSIZ_XFERSIZE(rxsize);
 
   /* Special case of isochronous endpoint.*/
   if ((usbp->epc[ep]->ep_mode & USB_EP_MODE_TYPE) == USB_EP_MODE_TYPE_ISOC) {
@@ -1258,10 +1657,25 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
      when the host re-sends SET_CONFIGURATION. Re-arming here guarantees the
      completion interrupt of the transfer we are about to start is delivered,
      even if the enumeration path did not re-enable it. */
+  n32dbg_startout_cnt++;
+  n32dbg_startout_ep = ep;
+  n32dbg_startout_mask |= (1U << ep);
+  n32dbg_startout_msk_before = usbp->otg->DAINTMSK;
   usbp->otg->DAINTMSK |= DAINTMSK_OUTEPTMSK(ep);
+  n32dbg_startout_msk_after = usbp->otg->DAINTMSK;
 
-  /* Starting operation.*/
-  usbp->otg->oe[ep].DOEPCTL |= DOEPCTL_EPTENA | DOEPCTL_CNAK;
+  /* Clear any stale status bits for this endpoint before arming, otherwise a
+     leftover XFERC/NAK bit makes the completion handler run on a transfer that
+     never happened. */
+  usbp->otg->oe[ep].DOEPINT = 0xFFFFFFFFU;
+
+  /* Starting operation: one single write of CNAK|EPENA (the vendor SDK does
+     the same) so the core cannot sample a half-updated control register. */
+  usbp->otg->oe[ep].DOEPCTL |= DOEPCTL_CNAK | DOEPCTL_EPTENA;
+
+  n32dbg_out_arm_ep  = ep;
+  n32dbg_out_arm_ctl = usbp->otg->oe[ep].DOEPCTL;
+  n32dbg_out_arm_siz = usbp->otg->oe[ep].DOEPTSIZ;
 }
 
 /**
@@ -1274,6 +1688,10 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
  */
 void usb_lld_start_in(USBDriver *usbp, usbep_t ep) {
   USBInEndpointState *isp = usbp->epc[ep]->in_state;
+
+  n32dbg_startin_cnt++;
+  n32dbg_startin_ep  = ep;
+  n32dbg_startin_sz  = isp->txsize;
 
   /* Transfer initialization.*/
   isp->totsize = isp->txsize;
@@ -1318,6 +1736,8 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep) {
  */
 void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
 
+  n32dbg_stall_out_cnt++;
+  n32dbg_stall_out_ep = ep;
   usbp->otg->oe[ep].DOEPCTL |= DOEPCTL_STALL;
 }
 
@@ -1331,6 +1751,8 @@ void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
  */
 void usb_lld_stall_in(USBDriver *usbp, usbep_t ep) {
 
+  n32dbg_stall_in_cnt++;
+  n32dbg_stall_in_ep = ep;
   usbp->otg->ie[ep].DIEPCTL |= DIEPCTL_STALL;
 }
 

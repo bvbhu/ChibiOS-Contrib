@@ -121,6 +121,13 @@
 /* USB attributes. N32H481 official datasheet (V1.2.0): only USB HS DualRole,
    no standalone USB FS Device, hence USBFS is FALSE. */
 #define N32_HAS_USBHS                     TRUE
+/* The device implements IN endpoints 0..8 and OUT endpoints 0 and 9..15
+   (reference manual: USBHS_DINEPxCTRL x=[1..8], USBHS_DOUTEPxCTRL x=[9..15],
+   USBHS_DAEPINTEN carries INEPIEN[8:0] plus OUTEPIEN0 and OUTEPIEN[15:9]).
+   OUT EP1..EP8 do not exist.  The value stays 6 because the shipped transport
+   only uses EP0..EP6; boards that want the interrupt-OUT transport on EP9
+   must raise this to 15 (the LLD's DAEPINT bit25 dispatch and epc[] sizing
+   are both guarded on USB_MAX_ENDPOINTS). */
 #define N32_USBHS_ENDPOINTS               6
 #define N32_USBHS_FIFO_MEM_SIZE           1280
 #define N32_HAS_USBFS                     FALSE
