@@ -77,11 +77,15 @@
 #define N32_HAS_ADC3                      TRUE
 #define N32_HAS_ADC4                      TRUE
 
-/* USART/UART attributes. Official: 3x USART (USART1/2/3) + 4x UART. */
+/* USART/UART attributes. The official CMSIS header defines eight instances:
+   USART1/2/3 + USART4 (APB2/APB1) and UART5/6/7/8.  The old N32_HAS_UART4
+   name is kept as an alias because the peripheral is named USART4 in the
+   header and in the vector table. */
 #define N32_HAS_USART1                    TRUE
 #define N32_HAS_USART2                    TRUE
 #define N32_HAS_USART3                    TRUE
-#define N32_HAS_UART4                     TRUE
+#define N32_HAS_USART4                    TRUE
+#define N32_HAS_UART4                     N32_HAS_USART4
 #define N32_HAS_UART5                     TRUE
 #define N32_HAS_UART6                     TRUE
 #define N32_HAS_UART7                     TRUE
