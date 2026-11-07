@@ -28,14 +28,18 @@
 #ifndef N32_REGISTRY_H
 #define N32_REGISTRY_H
 
-#if defined(N32H481RE) || defined(__DOXYGEN__)
+/* N32H481RE / N32H482 / N32H487 share the same USBHS-based peripheral set,
+   clock tree, GPIO/AF matrix and memory map.  H47x parts are excluded: they
+   have USB FS Device only and would need a different USB LLD. */
+#if defined(N32H481RE) || defined(N32H482) || defined(N32H487) ||             \
+    defined(__DOXYGEN__)
 
 /*===========================================================================*/
 /* Platform capabilities.                                                    */
 /*===========================================================================*/
 
 /**
- * @name    N32H481RE capabilities
+ * @name    N32H48x USBHS family capabilities
  * @{
  */
 /* GPIO attributes.*/
@@ -156,7 +160,7 @@
 /* RTC attributes.*/
 #define N32_HAS_RTC                       TRUE
 
-#endif /* defined(N32H481RE) */
+#endif /* N32H48x USBHS family */
 
 #endif /* N32_REGISTRY_H */
 

@@ -37,9 +37,13 @@ extern "C" {
 #define PLATFORM_NAME                  "N32H48x"
 
 /**
- * @brief   N32H48x device type.
+ * @brief   N32H47x/48x device type.
+ * @note    mcu_selection.mk exports the selected part macro.  The fallback
+ *          keeps standalone builds that only include board.h working.
  */
-#if !defined(N32H481RE) || defined(__DOXYGEN__)
+#if (!defined(N32H481RE) && !defined(N32H482) && !defined(N32H487) &&        \
+     !defined(N32H473) && !defined(N32H474) && !defined(N32H475)) ||          \
+    defined(__DOXYGEN__)
 #define N32H481RE
 #endif
 

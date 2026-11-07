@@ -66,7 +66,9 @@
 /* If the device type is not externally defined, for example from the Makefile,
    then a file named board.h is included. This file must contain a device
    definition compatible with the include file.*/
-#if !defined(N32H481RE) && !defined(__DOXYGEN__)
+#if !defined(N32H481RE) && !defined(N32H482) && !defined(N32H487) &&        \
+    !defined(N32H473) && !defined(N32H474) && !defined(N32H475) &&           \
+    !defined(__DOXYGEN__)
 #include "board.h"
 #endif
 

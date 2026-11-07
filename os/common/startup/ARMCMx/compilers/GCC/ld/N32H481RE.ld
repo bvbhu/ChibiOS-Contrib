@@ -4,7 +4,10 @@
     Memory setup derived from the Nsing Technologies N32H48x flash linker
     script (n32h48x_flash.ld, SDK, 2025) and the ChibiOS rules.ld layout.
 
-    N32H481REL7K: 512K flash, 192K SRAM (+ 32K CCM, not used here).
+    Shared family script: N32H481REL7K, N32H482 and N32H487 all have 512K
+    flash and 192K SRAM (+ 32K CCM, not used here).  The filename is kept
+    because mcu_selection.mk uses MCU_LDSCRIPT=N32H481RE for every part in
+    this family.
 */
 
 /*
